@@ -26,7 +26,8 @@ const Login = () => {
         navigate('/shopkeeper/dashboard');
       }
     } catch (err) {
-      setError(err.response?.data?.message || 'Invalid email or password. Please try again.');
+      const serverMsg = err.response?.data?.message || err.response?.data?.error;
+      setError(serverMsg || 'Invalid email or password. Please try again.');
     } finally {
       setLoading(false);
     }

@@ -24,7 +24,7 @@ app.use(async (req, res, next) => {
     } catch (error) {
       console.error('Database connection error in request handler:', error.message);
       return res.status(500).json({
-        message: 'Database connection error. Please verify MongoDB Atlas Network IP Access (0.0.0.0/0) is enabled.',
+        message: `Database Connection Failed: ${error.message}. Please check Vercel MONGO_URI environment variable and MongoDB Atlas cluster.`,
         error: error.message,
       });
     }
