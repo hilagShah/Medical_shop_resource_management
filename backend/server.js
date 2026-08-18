@@ -9,19 +9,28 @@ dotenv.config();
 
 const app = express();
 
-// Connect to MongoDB
-connectDB().then(async (conn) => {
-  if (conn) {
-    await seedAdmin();
-  }
-}).catch((err) => {
-  console.warn('Initial DB check skipped:', err.message);
-});
-
 // Middleware
 app.use(cors());
 app.use(express.json({ limit: '50mb' }));
 app.use(express.urlencoded({ extended: true, limit: '50mb' }));
+
+// Ensure MongoDB is connected and admin is seeded before handling API requests
+app.use(async (req, res, next) => {
+  if (req.path.startsWith('/api')) {
+    try {
+      await connectDB();
+      // Ensure admin exists
+      await seedAdmin().catch(() => {});
+    } catch (error) {
+      console.error('Database connection error in request handler:', error.message);
+      return res.status(500).json({
+        message: 'Database connection error. Please verify MongoDB Atlas Network IP Access (0.0.0.0/0) is enabled.',
+        error: error.message,
+      });
+    }
+  }
+  next();
+});
 
 // Routes
 app.use('/api/auth', require('./routes/authRoutes'));
