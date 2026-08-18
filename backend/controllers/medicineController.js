@@ -268,83 +268,6 @@ const batchImportMedicines = async (req, res) => {
   }
 };
 
-// Seed sample inventory if database is empty
-const seedSampleInventory = async (userId) => {
-  try {
-    const count = await Medicine.countDocuments();
-    if (count === 0 && userId) {
-      const today = new Date();
-      const sampleData = [
-        {
-          name: 'Paracetamol 500mg',
-          genericName: 'Acetaminophen',
-          batchNumber: 'PARA-2026-A1',
-          category: 'Analgesics / Antipyretic',
-          purchasePrice: 15.0,
-          sellingPrice: 35.0,
-          stockQuantity: 250,
-          expiryDate: new Date(today.getFullYear() + 2, today.getMonth(), 15),
-          supplier: { name: 'Apex Pharma', contact: '+91 98765-APEX' },
-          createdBy: userId,
-        },
-        {
-          name: 'Amoxicillin 250mg',
-          genericName: 'Amoxicillin Trihydrate',
-          batchNumber: 'AMOX-2026-B4',
-          category: 'Antibiotics',
-          purchasePrice: 40.0,
-          sellingPrice: 80.0,
-          stockQuantity: 120,
-          expiryDate: new Date(today.getFullYear() + 1, today.getMonth() + 4, 10),
-          supplier: { name: 'MediLife Global', contact: '+91 98765-MEDILIFE' },
-          createdBy: userId,
-        },
-        {
-          name: 'Cetirizine 10mg',
-          genericName: 'Cetirizine Hydrochloride',
-          batchNumber: 'CETI-2026-C2',
-          category: 'Antihistamines',
-          purchasePrice: 8.0,
-          sellingPrice: 20.0,
-          stockQuantity: 8, // Low stock sample
-          expiryDate: new Date(today.getFullYear(), today.getMonth() + 1, 20), // Near expiry sample
-          supplier: { name: 'Sun Health Corp', contact: '+91 98765-SUNHLT' },
-          createdBy: userId,
-        },
-        {
-          name: 'Metformin 500mg',
-          genericName: 'Metformin Hydrochloride',
-          batchNumber: 'METF-2026-D9',
-          category: 'Antidiabetic',
-          purchasePrice: 22.0,
-          sellingPrice: 50.0,
-          stockQuantity: 180,
-          expiryDate: new Date(today.getFullYear() + 2, today.getMonth() + 6, 30),
-          supplier: { name: 'Apex Pharma', contact: '+91 98765-APEX' },
-          createdBy: userId,
-        },
-        {
-          name: 'Omeprazole 20mg',
-          genericName: 'Omeprazole',
-          batchNumber: 'OMEP-2026-E5',
-          category: 'Gastrointestinal',
-          purchasePrice: 30.0,
-          sellingPrice: 75.0,
-          stockQuantity: 95,
-          expiryDate: new Date(today.getFullYear() + 1, today.getMonth() + 8, 12),
-          supplier: { name: 'BioCure Labs', contact: '+91 98765-BIOCURE' },
-          createdBy: userId,
-        },
-      ];
-
-      await Medicine.insertMany(sampleData);
-      console.log('Sample inventory seeded successfully');
-    }
-  } catch (error) {
-    console.error('Error seeding sample inventory:', error);
-  }
-};
-
 module.exports = {
   addMedicine,
   getMedicines,
@@ -353,6 +276,5 @@ module.exports = {
   deleteMedicine,
   scanPurchaseBill,
   batchImportMedicines,
-  seedSampleInventory,
 };
 

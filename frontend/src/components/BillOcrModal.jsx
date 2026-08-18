@@ -92,120 +92,6 @@ const BillOcrModal = ({ isOpen, onClose, onSuccess }) => {
     }
   };
 
-  // Preset sample bills for quick 1-click testing
-  const handleSelectSampleBill = (sampleType) => {
-    setError('');
-    setSuccessMsg('');
-    setScanning(true);
-
-    let sampleSupplier = { name: '', contact: '' };
-    let sampleInvoice = { number: '', date: '' };
-    let sampleItems = [];
-
-    if (sampleType === 'apex') {
-      sampleSupplier = { name: 'Apex Pharma Distributors', contact: '+91 98765 43210' };
-      sampleInvoice = { number: 'INV-2026-889', date: '2026-08-15' };
-      sampleItems = [
-        {
-          name: 'Paracetamol 650mg Tab',
-          genericName: 'Acetaminophen',
-          batchNumber: 'APX-PAR-904',
-          category: 'Analgesics / Antipyretic',
-          purchasePrice: 18.5,
-          sellingPrice: 40.0,
-          stockQuantity: 300,
-          expiryDate: '2028-06-30',
-        },
-        {
-          name: 'Azithromycin 500mg',
-          genericName: 'Azithromycin Dihydrate',
-          batchNumber: 'APX-AZI-112',
-          category: 'Antibiotics',
-          purchasePrice: 65.0,
-          sellingPrice: 130.0,
-          stockQuantity: 150,
-          expiryDate: '2027-11-15',
-        },
-        {
-          name: 'Pantoprazole 40mg',
-          genericName: 'Pantoprazole Sodium',
-          batchNumber: 'APX-PAN-443',
-          category: 'Gastrointestinal',
-          purchasePrice: 24.0,
-          sellingPrice: 55.0,
-          stockQuantity: 200,
-          expiryDate: '2028-03-20',
-        },
-      ];
-    } else {
-      sampleSupplier = { name: 'MediLife Global Healthcare', contact: '+91 88776 55443' };
-      sampleInvoice = { number: 'MLG-BILL-401', date: '2026-08-10' };
-      sampleItems = [
-        {
-          name: 'Amoxicillin & Clavulanate 625mg',
-          genericName: 'Amoxicillin / Clavulanic Acid',
-          batchNumber: 'MLG-AMO-772',
-          category: 'Antibiotics',
-          purchasePrice: 85.0,
-          sellingPrice: 175.0,
-          stockQuantity: 100,
-          expiryDate: '2027-09-30',
-        },
-        {
-          name: 'Levocetirizine 5mg',
-          genericName: 'Levocetirizine Dihydrochloride',
-          batchNumber: 'MLG-LEV-309',
-          category: 'Antihistamines',
-          purchasePrice: 12.0,
-          sellingPrice: 28.0,
-          stockQuantity: 250,
-          expiryDate: '2028-12-31',
-        },
-        {
-          name: 'Metformin SR 1000mg',
-          genericName: 'Metformin Hydrochloride',
-          batchNumber: 'MLG-MET-661',
-          category: 'Antidiabetic',
-          purchasePrice: 32.0,
-          sellingPrice: 70.0,
-          stockQuantity: 180,
-          expiryDate: '2028-08-15',
-        },
-      ];
-    }
-
-    // Generate a visual placeholder canvas for preview
-    const canvas = document.createElement('canvas');
-    canvas.width = 400;
-    canvas.height = 300;
-    const ctx = canvas.getContext('2d');
-    ctx.fillStyle = '#0f172a';
-    ctx.fillRect(0, 0, 400, 300);
-    ctx.fillStyle = '#38bdf8';
-    ctx.font = 'bold 18px sans-serif';
-    ctx.fillText(sampleSupplier.name, 20, 40);
-    ctx.fillStyle = '#94a3b8';
-    ctx.font = '12px monospace';
-    ctx.fillText(`INVOICE: ${sampleInvoice.number} | DATE: ${sampleInvoice.date}`, 20, 65);
-    ctx.fillStyle = '#e2e8f0';
-    ctx.font = '13px sans-serif';
-    sampleItems.forEach((item, idx) => {
-      ctx.fillText(`${idx + 1}. ${item.name} (Qty: ${item.stockQuantity}) - ₹${item.purchasePrice}`, 20, 100 + idx * 30);
-    });
-    const sampleB64 = canvas.toDataURL('image/jpeg');
-
-    setBase64Image(sampleB64);
-    setPreviewUrl(sampleB64);
-
-    setTimeout(() => {
-      setSupplier(sampleSupplier);
-      setInvoiceMeta(sampleInvoice);
-      setItems(sampleItems);
-      setScanning(false);
-      setScanned(true);
-    }, 1200);
-  };
-
   // Helper to downscale any base64 string
   const compressBase64String = (b64, maxDim = 1600, quality = 0.8) => {
     return new Promise((resolve) => {
@@ -408,102 +294,50 @@ const BillOcrModal = ({ isOpen, onClose, onSuccess }) => {
             </div>
           )}
 
-          {/* STEP 1: UPLOAD BILL OR QUICK PRESET */}
+          {/* STEP 1: UPLOAD BILL */}
           {!scanned && !scanning && (
             <div className="space-y-6">
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                {/* Custom File Upload Box */}
-                <div className="flex flex-col items-center justify-center rounded-2xl border-2 border-dashed border-slate-700 bg-slate-950/50 p-6 text-center hover:border-cyan-500/60 transition-all">
-                  {previewUrl ? (
-                    <div className="space-y-3 w-full flex flex-col items-center">
-                      <img
-                        src={previewUrl}
-                        alt="Bill Preview"
-                        className="max-h-44 rounded-xl border border-slate-800 object-contain shadow-md"
-                      />
-                      <p className="text-xs text-slate-400 font-mono truncate max-w-xs">{file?.name || 'Uploaded Bill Image'}</p>
-                      <button
-                        onClick={() => {
-                          setFile(null);
-                          setPreviewUrl(null);
-                          setBase64Image(null);
-                        }}
-                        className="text-xs text-rose-400 hover:underline"
-                      >
-                        Remove Image
-                      </button>
+              <div className="flex flex-col items-center justify-center rounded-2xl border-2 border-dashed border-slate-700 bg-slate-950/50 p-8 text-center hover:border-cyan-500/60 transition-all">
+                {previewUrl ? (
+                  <div className="space-y-4 w-full flex flex-col items-center">
+                    <img
+                      src={previewUrl}
+                      alt="Bill Preview"
+                      className="max-h-56 rounded-xl border border-slate-800 object-contain shadow-md"
+                    />
+                    <p className="text-xs text-slate-400 font-mono truncate max-w-xs">{file?.name || 'Uploaded Bill Image'}</p>
+                    <button
+                      onClick={() => {
+                        setFile(null);
+                        setPreviewUrl(null);
+                        setBase64Image(null);
+                      }}
+                      className="text-xs text-rose-400 hover:underline font-medium"
+                    >
+                      Remove Image
+                    </button>
+                  </div>
+                ) : (
+                  <label className="cursor-pointer flex flex-col items-center gap-3 w-full py-4">
+                    <div className="rounded-full bg-slate-800 p-4 text-cyan-400 shadow-inner">
+                      <Upload className="h-8 w-8" />
                     </div>
-                  ) : (
-                    <label className="cursor-pointer flex flex-col items-center gap-3 w-full">
-                      <div className="rounded-full bg-slate-800 p-4 text-cyan-400 shadow-inner">
-                        <Upload className="h-8 w-8" />
-                      </div>
-                      <div>
-                        <p className="text-sm font-semibold text-slate-200">
-                          Upload Purchase Bill / Invoice Image
-                        </p>
-                        <p className="text-xs text-slate-400 mt-1">
-                          Drag & drop or click to browse (JPG, PNG, WEBP)
-                        </p>
-                      </div>
-                      <input
-                        type="file"
-                        accept="image/*"
-                        onChange={handleFileChange}
-                        className="hidden"
-                      />
-                    </label>
-                  )}
-                </div>
-
-                {/* Quick Demo Sample Bill Selector */}
-                <div className="flex flex-col justify-between rounded-2xl border border-slate-800 bg-slate-950/40 p-5 space-y-4">
-                  <div>
-                    <h3 className="text-xs font-bold uppercase tracking-wider text-slate-400 flex items-center gap-2">
-                      <Sparkles className="h-3.5 w-3.5 text-cyan-400" />
-                      Instant 1-Click Demo Samples
-                    </h3>
-                    <p className="text-xs text-slate-400 mt-1">
-                      Test Gemini Vision OCR extraction instantly with realistic sample distributor purchase bills:
-                    </p>
-                  </div>
-
-                  <div className="space-y-2.5">
-                    <button
-                      onClick={() => handleSelectSampleBill('apex')}
-                      className="w-full flex items-center justify-between rounded-xl border border-slate-800 bg-slate-900 p-3 hover:border-cyan-500/50 hover:bg-slate-800/80 transition-all text-left group"
-                    >
-                      <div>
-                        <p className="text-xs font-semibold text-white group-hover:text-cyan-300">
-                          Apex Pharma Distributors
-                        </p>
-                        <p className="text-[10px] text-slate-400">
-                          Invoice #INV-2026-889 • 3 Medicines (Paracetamol, Azithromycin, Pantoprazole)
-                        </p>
-                      </div>
-                      <Sparkles className="h-4 w-4 text-cyan-400 group-hover:scale-110 transition-transform" />
-                    </button>
-
-                    <button
-                      onClick={() => handleSelectSampleBill('medilife')}
-                      className="w-full flex items-center justify-between rounded-xl border border-slate-800 bg-slate-900 p-3 hover:border-cyan-500/50 hover:bg-slate-800/80 transition-all text-left group"
-                    >
-                      <div>
-                        <p className="text-xs font-semibold text-white group-hover:text-cyan-300">
-                          MediLife Global Healthcare
-                        </p>
-                        <p className="text-[10px] text-slate-400">
-                          Bill #MLG-BILL-401 • 3 Medicines (Amoxicillin 625, Levocetirizine, Metformin)
-                        </p>
-                      </div>
-                      <Sparkles className="h-4 w-4 text-cyan-400 group-hover:scale-110 transition-transform" />
-                    </button>
-                  </div>
-
-                  <p className="text-[10px] text-slate-500 italic">
-                    Note: Bill images are processed in-memory and discarded immediately after OCR analysis.
-                  </p>
-                </div>
+                    <div>
+                      <p className="text-sm font-semibold text-slate-200">
+                        Upload Purchase Bill / Invoice Image
+                      </p>
+                      <p className="text-xs text-slate-400 mt-1">
+                        Drag & drop or click to browse (JPG, PNG, WEBP)
+                      </p>
+                    </div>
+                    <input
+                      type="file"
+                      accept="image/*"
+                      onChange={handleFileChange}
+                      className="hidden"
+                    />
+                  </label>
+                )}
               </div>
 
               {/* Perform OCR Button */}

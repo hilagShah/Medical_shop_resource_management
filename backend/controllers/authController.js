@@ -59,21 +59,6 @@ const seedAdmin = async () => {
         isActive: true,
       });
       console.log(`Default admin created: ${admin.email} / admin123`);
-
-      // Seed a default shopkeeper too if none exist
-      const shopkeeperCount = await User.countDocuments({ role: 'shopkeeper' });
-      if (shopkeeperCount === 0) {
-        await User.create({
-          name: 'John Doe',
-          email: 'shopkeeper@medshop.com',
-          password: 'shopkeeper123',
-          role: 'shopkeeper',
-          shopName: 'HealthCare Pharmacy - Downtown',
-          phone: '+1 555-0192',
-          isActive: true,
-        });
-        console.log(`Default shopkeeper created: shopkeeper@medshop.com / shopkeeper123`);
-      }
     }
   } catch (error) {
     console.error('Error seeding admin user:', error);

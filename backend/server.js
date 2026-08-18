@@ -4,8 +4,6 @@ const dotenv = require('dotenv');
 const connectDB = require('./config/db');
 const { notFound, errorHandler } = require('./middlewares/errorMiddleware');
 const { seedAdmin } = require('./controllers/authController');
-const { seedSampleInventory } = require('./controllers/medicineController');
-const User = require('./models/User');
 
 dotenv.config();
 
@@ -15,13 +13,9 @@ const app = express();
 connectDB().then(async (conn) => {
   if (conn) {
     await seedAdmin();
-    const adminUser = await User.findOne({ role: 'admin' });
-    if (adminUser) {
-      await seedSampleInventory(adminUser._id);
-    }
   }
 }).catch((err) => {
-  console.warn('Initial seeding skipped until DB connects:', err.message);
+  console.warn('Initial DB check skipped:', err.message);
 });
 
 // Middleware
