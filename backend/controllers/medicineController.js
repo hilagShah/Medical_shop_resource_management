@@ -1,7 +1,7 @@
 const Medicine = require('../models/Medicine');
 const { parsePurchaseBillImage } = require('../services/ocrService');
 
-// @desc    Add new medicine entry or update stock quantity if batch exists
+// @desc    Add new medicine entry or update stock quantity if batch exists for this shopkeeper
 // @route   POST /api/medicines
 // @access  Private (Admin & Shopkeeper)
 const addMedicine = async (req, res) => {
@@ -21,10 +21,11 @@ const addMedicine = async (req, res) => {
     return res.status(400).json({ message: 'Please fill in all required fields' });
   }
 
-  // Check if same medicine with exact batch number exists
+  // Check if same medicine with exact batch number exists FOR THIS SHOPKEEPER
   let medicine = await Medicine.findOne({
     batchNumber: batchNumber.trim(),
     name: { $regex: new RegExp(`^${name.trim()}$`, 'i') },
+    createdBy: req.user._id,
   });
 
   if (medicine) {
@@ -42,7 +43,7 @@ const addMedicine = async (req, res) => {
     });
   }
 
-  // Create new medicine record
+  // Create new medicine record assigned to the logged-in shopkeeper
   medicine = await Medicine.create({
     name: name.trim(),
     genericName: genericName.trim(),
@@ -62,13 +63,21 @@ const addMedicine = async (req, res) => {
   });
 };
 
-// @desc    Get all medicines (Search, Category filter, Expiry status filter)
+// @desc    Get all medicines (Scoped by Shopkeeper if shopkeeper, Global with filter for Admin)
 // @route   GET /api/medicines
 // @access  Private (Admin & Shopkeeper)
 const getMedicines = async (req, res) => {
-  const { search, category, stockStatus, expiryStatus } = req.query;
+  const { search, category, stockStatus, expiryStatus, shopkeeperId } = req.query;
 
   let query = {};
+
+  // Per-shopkeeper data isolation: Shopkeepers only see their own store's inventory
+  if (req.user.role === 'shopkeeper') {
+    query.createdBy = req.user._id;
+  } else if (shopkeeperId) {
+    // Admin filtering by a specific branch / shopkeeper
+    query.createdBy = shopkeeperId;
+  }
 
   if (category && category !== 'All') {
     query.category = { $regex: category, $options: 'i' };
@@ -99,7 +108,7 @@ const getMedicines = async (req, res) => {
   }
 
   const medicines = await Medicine.find(query)
-    .populate('createdBy', 'name shopName')
+    .populate('createdBy', 'name shopName email')
     .sort({ name: 1 });
 
   res.json(medicines);
@@ -110,11 +119,17 @@ const getMedicines = async (req, res) => {
 // @access  Private
 const getMedicineById = async (req, res) => {
   const medicine = await Medicine.findById(req.params.id);
-  if (medicine) {
-    res.json(medicine);
-  } else {
-    res.status(404).json({ message: 'Medicine not found' });
+
+  if (!medicine) {
+    return res.status(404).json({ message: 'Medicine not found' });
   }
+
+  // Verify ownership if user is shopkeeper
+  if (req.user.role === 'shopkeeper' && medicine.createdBy.toString() !== req.user._id.toString()) {
+    return res.status(403).json({ message: 'Not authorized to view this inventory item' });
+  }
+
+  res.json(medicine);
 };
 
 // @desc    Update medicine stock or pricing
@@ -125,6 +140,11 @@ const updateMedicine = async (req, res) => {
 
   if (!medicine) {
     return res.status(404).json({ message: 'Medicine not found' });
+  }
+
+  // Verify ownership if user is shopkeeper
+  if (req.user.role === 'shopkeeper' && medicine.createdBy.toString() !== req.user._id.toString()) {
+    return res.status(403).json({ message: 'Not authorized to modify this inventory item' });
   }
 
   const {
@@ -163,6 +183,11 @@ const deleteMedicine = async (req, res) => {
     return res.status(404).json({ message: 'Medicine not found' });
   }
 
+  // Verify ownership if user is shopkeeper
+  if (req.user.role === 'shopkeeper' && medicine.createdBy.toString() !== req.user._id.toString()) {
+    return res.status(403).json({ message: 'Not authorized to delete this inventory item' });
+  }
+
   await medicine.deleteOne();
   res.json({ message: 'Medicine removed from inventory' });
 };
@@ -195,7 +220,7 @@ const scanPurchaseBill = async (req, res) => {
   }
 };
 
-// @desc    Batch import verified OCR medicines into MongoDB database
+// @desc    Batch import verified OCR medicines into MongoDB database (assigned to current shopkeeper)
 // @route   POST /api/medicines/batch-import
 // @access  Private (Admin & Shopkeeper)
 const batchImportMedicines = async (req, res) => {
@@ -223,10 +248,11 @@ const batchImportMedicines = async (req, res) => {
 
       if (!name) continue;
 
-      // Check if medicine with exact name and batch number exists
+      // Check if medicine with exact name and batch number exists FOR THIS SHOPKEEPER
       let medicine = await Medicine.findOne({
         batchNumber: batchNumber,
         name: { $regex: new RegExp(`^${name.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}$`, 'i') },
+        createdBy: req.user._id,
       });
 
       if (medicine) {
@@ -240,7 +266,7 @@ const batchImportMedicines = async (req, res) => {
         processedMedicines.push(medicine);
       } else {
         medicine = await Medicine.create({
-          name: name, // Exact name as in the bill
+          name: name,
           genericName: genericName,
           batchNumber: batchNumber,
           category: category,
@@ -277,4 +303,3 @@ module.exports = {
   scanPurchaseBill,
   batchImportMedicines,
 };
-
