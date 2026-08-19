@@ -14,6 +14,7 @@ const InvoiceModal = ({ order, onClose }) => {
     dlNo2: '21 247972, 21B 247974',
     pharmacist1: 'PRAVIN B PATEL (PHARMACIST)',
     pharmacist2: 'DR VRUDDHI PATEL (PHARMACIST)',
+    doctorConsultant: 'Dr. Keyur P. Patel (Consultant Dental Surgeon & Implantologist)',
     customerCare: '079 3520 7999',
   });
 
@@ -330,6 +331,15 @@ const InvoiceModal = ({ order, onClose }) => {
                   className="w-full rounded-lg border border-slate-800 bg-slate-900 px-2.5 py-1.5 text-white"
                 />
               </div>
+              <div className="sm:col-span-3">
+                <label className="text-[11px] text-slate-400 block mb-1">Doctor / Consultant Footer Name</label>
+                <input
+                  type="text"
+                  value={pharmacyDetails.doctorConsultant}
+                  onChange={(e) => setPharmacyDetails({ ...pharmacyDetails, doctorConsultant: e.target.value })}
+                  className="w-full rounded-lg border border-slate-800 bg-slate-900 px-2.5 py-1.5 text-white"
+                />
+              </div>
             </div>
           </div>
         )}
@@ -480,6 +490,9 @@ const InvoiceModal = ({ order, onClose }) => {
               <p className="font-bold">FOR: {pharmacyDetails.name}</p>
               <p className="mt-0.5">{pharmacyDetails.pharmacist1}</p>
               <p>{pharmacyDetails.pharmacist2}</p>
+              {pharmacyDetails.doctorConsultant && (
+                <p className="mt-0.5 font-bold text-gray-900">{pharmacyDetails.doctorConsultant}</p>
+              )}
             </div>
             <div className="text-right flex flex-col justify-between">
               <div>
@@ -494,7 +507,7 @@ const InvoiceModal = ({ order, onClose }) => {
 
           {/* FOOTER SYSTEM TAG */}
           <div className="footer-tag mt-2 pt-1 border-t border-gray-300 text-center text-[8px] text-gray-600">
-            Software by MEDICAL SHOP MANAGEMENT : Customer Care No: {pharmacyDetails.customerCare}
+            Customer Care No: {pharmacyDetails.customerCare}
           </div>
         </div>
       </div>
