@@ -490,9 +490,7 @@ const InvoiceModal = ({ order, onClose }) => {
               <p className="font-bold">FOR: {pharmacyDetails.name}</p>
               <p className="mt-0.5">{pharmacyDetails.pharmacist1}</p>
               <p>{pharmacyDetails.pharmacist2}</p>
-              {pharmacyDetails.doctorConsultant && (
-                <p className="mt-0.5 font-bold text-gray-900">{pharmacyDetails.doctorConsultant}</p>
-              )}
+              <p>{pharmacyDetails.doctorConsultant}</p>
             </div>
             <div className="text-right flex flex-col justify-between">
               <div>
