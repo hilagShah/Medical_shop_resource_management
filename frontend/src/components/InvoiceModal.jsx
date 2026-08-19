@@ -12,9 +12,9 @@ const InvoiceModal = ({ order, onClose }) => {
     gstin: '24AAIFU7369Q1Z7',
     dlNo1: '20 247971, 20B 247973',
     dlNo2: '21 247972, 21B 247974',
-    pharmacist1: 'PRAVIN B PATEL (PHARMACIST)',
-    pharmacist2: 'DR VRUDDHI PATEL (PHARMACIST)',
-    doctorConsultant: 'Dr. Keyur P. Patel (Consultant Dental Surgeon & Implantologist)',
+    pharmacist1: 'PRAVIN B PATEL (Pharmacist)',
+    pharmacist2: 'DR. VRUDDHI PATEL (Pharmacist)',
+    doctorConsultant: 'DR. KEYUR P. PATEL (Consultant Dental Surgeon & Implantologist)',
     customerCare: '079 3520 7999',
   });
 
