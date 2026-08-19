@@ -49,8 +49,15 @@ app.use(errorHandler);
 const PORT = process.env.PORT || 5001;
 
 if (!process.env.VERCEL) {
-  app.listen(PORT, () => {
-    console.log(`Server running on port ${PORT}`);
+  app.listen(PORT, async () => {
+    console.log(`🚀 Server running on http://localhost:${PORT}`);
+    try {
+      await connectDB();
+      await seedAdmin().catch(() => {});
+      console.log('✅ MongoDB Database connected & System Admin ready');
+    } catch (err) {
+      console.error('⚠️ MongoDB Connection Notice:', err.message);
+    }
   });
 }
 
