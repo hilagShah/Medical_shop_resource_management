@@ -88,9 +88,17 @@ const orderSchema = new mongoose.Schema(
       required: true,
       default: 0,
     },
+    taxRate: {
+      type: Number,
+      default: 5,
+    },
     tax: {
       type: Number,
       required: true,
+      default: 0,
+    },
+    roundOff: {
+      type: Number,
       default: 0,
     },
     finalAmount: {

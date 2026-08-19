@@ -109,8 +109,11 @@ const createOrder = async (req, res) => {
     const amountAfterAllDiscounts = Math.max(0, grossTotalBeforeDiscount - totalCumulativeDiscount);
 
     // Tax calculation
-    const taxAmount = (amountAfterAllDiscounts * Number(taxRate)) / 100;
-    const finalAmount = amountAfterAllDiscounts + taxAmount;
+    const taxRateNum = Math.max(0, Number(taxRate) || 0);
+    const taxAmount = (amountAfterAllDiscounts * taxRateNum) / 100;
+    const rawTotal = amountAfterAllDiscounts + taxAmount;
+    const roundedTotal = Math.round(rawTotal);
+    const roundOff = roundedTotal - rawTotal;
 
     // Create Order Record
     const orderNumber = generateOrderNumber();
@@ -132,8 +135,10 @@ const createOrder = async (req, res) => {
         amount: Number(orderDiscountAmount.toFixed(2)),
       },
       totalCumulativeDiscount: Number(totalCumulativeDiscount.toFixed(2)),
+      taxRate: taxRateNum,
       tax: Number(taxAmount.toFixed(2)),
-      finalAmount: Number(finalAmount.toFixed(2)),
+      roundOff: Number(roundOff.toFixed(2)),
+      finalAmount: Number(roundedTotal.toFixed(2)),
       paymentMethod: paymentMethod || 'Cash',
     };
 

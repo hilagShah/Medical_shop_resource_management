@@ -176,8 +176,13 @@ const POS = () => {
 
   const totalCumulativeDiscount = totalItemDiscount + orderDiscountAmount;
   const netAfterAllDiscounts = Math.max(0, grossTotalBeforeDiscount - totalCumulativeDiscount);
-  const taxAmount = (netAfterAllDiscounts * Math.max(0, taxRate)) / 100;
-  const finalPayableAmount = netAfterAllDiscounts + taxAmount;
+  const taxRateNum = Math.max(0, parseFloat(taxRate) || 0);
+  const taxAmount = (netAfterAllDiscounts * taxRateNum) / 100;
+  const sgstAmount = taxAmount / 2;
+  const cgstAmount = taxAmount / 2;
+  const rawPayableAmount = netAfterAllDiscounts + taxAmount;
+  const finalPayableAmount = Math.round(rawPayableAmount);
+  const roundOffAmount = (finalPayableAmount - rawPayableAmount).toFixed(2);
 
   // Real-time Profit / Loss Margin Calculation
   const estimatedProfitOrLoss = netAfterAllDiscounts - totalPurchaseCost;
@@ -557,22 +562,52 @@ const POS = () => {
             </div>
           </div>
 
-          {/* Tax / GST Input */}
-          <div className="flex items-center justify-between text-xs">
-            <span className="text-slate-400 font-medium">GST / Tax Rate (%)</span>
-            <input
-              type="number"
-              min="0"
-              value={taxRate}
-              onChange={(e) => setTaxRate(Math.max(0, parseFloat(e.target.value) || 0))}
-              className="w-20 text-right rounded-lg border border-slate-800 bg-slate-950 px-2 py-1 text-xs text-white font-mono focus:border-cyan-500 focus:outline-none"
-            />
+          {/* Manual Tax / GST Input Field with Preset Buttons */}
+          <div className="rounded-xl bg-slate-950 p-3.5 border border-slate-800 space-y-2.5">
+            <div className="flex items-center justify-between text-xs font-semibold text-slate-300">
+              <span>Manual GST / Tax Rate</span>
+              <span className="font-mono text-cyan-400">+{taxRateNum}%</span>
+            </div>
+
+            {/* Quick GST Preset Chips */}
+            <div className="flex items-center gap-1.5 flex-wrap">
+              {[0, 5, 12, 18, 28].map((rate) => (
+                <button
+                  key={rate}
+                  type="button"
+                  onClick={() => setTaxRate(rate)}
+                  className={`px-2.5 py-1 text-[11px] font-bold rounded-lg transition-all border ${
+                    taxRate === rate
+                      ? 'bg-cyan-500/20 text-cyan-400 border-cyan-500/50 shadow-sm'
+                      : 'bg-slate-900 text-slate-400 border-slate-800 hover:text-slate-200'
+                  }`}
+                >
+                  {rate}%
+                </button>
+              ))}
+            </div>
+
+            {/* Direct Numeric Input for Custom Tax */}
+            <div className="flex items-center gap-2 pt-1">
+              <span className="text-[11px] text-slate-400">Custom Tax Rate (%):</span>
+              <div className="relative flex-1">
+                <input
+                  type="number"
+                  min="0"
+                  step="0.1"
+                  value={taxRate}
+                  onChange={(e) => setTaxRate(e.target.value === '' ? '' : Math.max(0, parseFloat(e.target.value) || 0))}
+                  placeholder="e.g. 5"
+                  className="w-full text-right rounded-lg border border-slate-800 bg-slate-900 px-3 py-1.5 text-xs text-white font-mono font-bold focus:border-cyan-500 focus:outline-none"
+                />
+              </div>
+            </div>
           </div>
 
           {/* LIVE BILL BREAKDOWN LISTING */}
           <div className="space-y-2 text-xs border-t border-b border-slate-800/80 py-4">
             <div className="flex justify-between text-slate-400">
-              <span>Total Gross Amount (Before Discount):</span>
+              <span>Total Gross Amount (MRP):</span>
               <span className="font-mono text-slate-200">₹{grossTotalBeforeDiscount.toFixed(2)}</span>
             </div>
 
@@ -581,24 +616,48 @@ const POS = () => {
               <span className="font-mono text-slate-400">₹{totalPurchaseCost.toFixed(2)}</span>
             </div>
 
-            <div className="flex justify-between text-slate-400">
-              <span>Total Line-Item Discounts:</span>
-              <span className="font-mono text-emerald-400">-₹{totalItemDiscount.toFixed(2)}</span>
-            </div>
+            {totalItemDiscount > 0 && (
+              <div className="flex justify-between text-slate-400">
+                <span>Total Line-Item Discounts:</span>
+                <span className="font-mono text-emerald-400">-₹{totalItemDiscount.toFixed(2)}</span>
+              </div>
+            )}
+
+            {orderDiscountAmount > 0 && (
+              <div className="flex justify-between text-slate-400">
+                <span>Cart-Level Discount Amount:</span>
+                <span className="font-mono text-emerald-400">-₹{orderDiscountAmount.toFixed(2)}</span>
+              </div>
+            )}
+
+            {totalCumulativeDiscount > 0 && (
+              <div className="flex justify-between font-semibold text-emerald-400 bg-emerald-500/10 p-2 rounded-lg border border-emerald-500/20">
+                <span>Total Cumulative Discount Given:</span>
+                <span className="font-mono">-₹{totalCumulativeDiscount.toFixed(2)}</span>
+              </div>
+            )}
 
             <div className="flex justify-between text-slate-400">
-              <span>Cart-Level Discount Amount:</span>
-              <span className="font-mono text-emerald-400">-₹{orderDiscountAmount.toFixed(2)}</span>
+              <span>Taxable Value (Base):</span>
+              <span className="font-mono text-slate-200">₹{netAfterAllDiscounts.toFixed(2)}</span>
             </div>
 
-            <div className="flex justify-between font-semibold text-emerald-400 bg-emerald-500/10 p-2 rounded-lg border border-emerald-500/20">
-              <span>Total Cumulative Discount Given:</span>
-              <span className="font-mono">-₹{totalCumulativeDiscount.toFixed(2)}</span>
-            </div>
+            {taxRateNum > 0 && (
+              <>
+                <div className="flex justify-between text-slate-400 text-[11px] pl-2 border-l border-slate-800">
+                  <span>SGST ({(taxRateNum / 2).toFixed(2)}%):</span>
+                  <span className="font-mono text-slate-300">+₹{sgstAmount.toFixed(2)}</span>
+                </div>
+                <div className="flex justify-between text-slate-400 text-[11px] pl-2 border-l border-slate-800">
+                  <span>CGST ({(taxRateNum / 2).toFixed(2)}%):</span>
+                  <span className="font-mono text-slate-300">+₹{cgstAmount.toFixed(2)}</span>
+                </div>
+              </>
+            )}
 
             <div className="flex justify-between text-slate-400">
-              <span>Tax / GST ({taxRate}%):</span>
-              <span className="font-mono text-slate-300">+₹{taxAmount.toFixed(2)}</span>
+              <span>Round Off:</span>
+              <span className="font-mono text-slate-300">{roundOffAmount >= 0 ? `+₹${roundOffAmount}` : `-₹${Math.abs(roundOffAmount)}`}</span>
             </div>
 
             <div className="flex justify-between text-lg font-black text-white pt-2 border-t border-slate-800">
