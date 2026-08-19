@@ -43,8 +43,8 @@ const InvoiceModal = ({ order, onClose }) => {
   const formattedDate = `${orderDate.toLocaleDateString('en-GB')} ${orderDate.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}`;
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/85 p-2 sm:p-4 backdrop-blur-md overflow-y-auto">
-      <div className="relative w-full max-w-4xl rounded-2xl border border-slate-700 bg-slate-900 p-4 sm:p-6 shadow-2xl my-auto max-h-[95vh] overflow-y-auto text-slate-100">
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/85 p-2 sm:p-4 backdrop-blur-md overflow-y-auto print:static print:bg-transparent print:p-0 print:m-0 print:overflow-visible print:inset-auto">
+      <div className="relative w-full max-w-4xl rounded-2xl border border-slate-700 bg-slate-900 p-4 sm:p-6 shadow-2xl my-auto max-h-[95vh] overflow-y-auto text-slate-100 print:static print:border-none print:shadow-none print:bg-transparent print:p-0 print:m-0 print:max-h-none print:overflow-visible">
         
         {/* MODAL ACTION BAR (Hidden during print) */}
         <div className="no-print mb-4 flex flex-wrap items-center justify-between gap-3 border-b border-slate-800 pb-4">
