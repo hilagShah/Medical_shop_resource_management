@@ -1,6 +1,7 @@
 import React from 'react';
 import { Navigate, Outlet } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
+import PaymentBlockedScreen from './PaymentBlockedScreen';
 
 const ProtectedRoute = ({ allowedRoles }) => {
   const { user, loading } = useAuth();
@@ -23,6 +24,15 @@ const ProtectedRoute = ({ allowedRoles }) => {
   if (allowedRoles && !allowedRoles.includes(user.role)) {
     // Redirect based on user's actual role
     return <Navigate to={user.role === 'admin' ? '/admin/dashboard' : '/shopkeeper/dashboard'} replace />;
+  }
+
+  // Check shopkeeper payment status
+  if (user.role === 'shopkeeper') {
+    const isExpired = user.subscriptionExpiresAt && new Date(user.subscriptionExpiresAt) < new Date();
+    const isOverdue = user.paymentStatus === 'overdue' || isExpired;
+    if (isOverdue) {
+      return <PaymentBlockedScreen user={user} />;
+    }
   }
 
   return <Outlet />;

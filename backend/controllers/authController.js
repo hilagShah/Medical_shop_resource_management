@@ -18,6 +18,9 @@ const loginUser = async (req, res) => {
       return res.status(403).json({ message: 'Your account is inactive. Contact Admin.' });
     }
 
+    const isExpired = user.role === 'shopkeeper' && user.subscriptionExpiresAt && new Date(user.subscriptionExpiresAt) < new Date();
+    const effectivePaymentStatus = isExpired ? 'overdue' : (user.paymentStatus || 'paid');
+
     res.json({
       _id: user._id,
       name: user.name,
@@ -25,6 +28,12 @@ const loginUser = async (req, res) => {
       role: user.role,
       shopName: user.shopName,
       phone: user.phone,
+      isActive: user.isActive,
+      paymentStatus: effectivePaymentStatus,
+      subscriptionPlan: user.subscriptionPlan || 'monthly',
+      subscriptionExpiresAt: user.subscriptionExpiresAt,
+      tradingYearStartDate: user.tradingYearStartDate,
+      monthlyFee: user.monthlyFee || 0,
       token: generateToken(user._id),
     });
   } else {

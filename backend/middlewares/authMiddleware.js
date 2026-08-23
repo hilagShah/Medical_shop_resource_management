@@ -27,6 +27,28 @@ const protect = async (req, res, next) => {
         return res.status(403).json({ message: 'Account has been deactivated' });
       }
 
+      // Check shopkeeper subscription status
+      if (req.user.role === 'shopkeeper') {
+        const isExpired = req.user.subscriptionExpiresAt && new Date(req.user.subscriptionExpiresAt) < new Date();
+        const isOverdue = req.user.paymentStatus === 'overdue' || isExpired;
+
+        if (isExpired && req.user.paymentStatus !== 'overdue') {
+          req.user.paymentStatus = 'overdue';
+          await User.findByIdAndUpdate(req.user._id, { paymentStatus: 'overdue' });
+        }
+
+        // If payment is overdue and requesting anything other than auth status/me, block access
+        const isAuthMe = req.baseUrl === '/api/auth' || req.originalUrl?.includes('/api/auth/me');
+        if (isOverdue && !isAuthMe) {
+          return res.status(403).json({
+            message: 'Your monthly/yearly subscription has expired. Please contact the administrator to renew access.',
+            code: 'PAYMENT_REQUIRED',
+            paymentStatus: 'overdue',
+            subscriptionExpiresAt: req.user.subscriptionExpiresAt,
+          });
+        }
+      }
+
       next();
     } catch (error) {
       console.error(error);

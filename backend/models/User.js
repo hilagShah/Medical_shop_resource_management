@@ -39,6 +39,32 @@ const userSchema = new mongoose.Schema(
       type: Boolean,
       default: true,
     },
+    tradingYearStartDate: {
+      type: Date,
+      default: Date.now,
+    },
+    paymentStatus: {
+      type: String,
+      enum: ['paid', 'pending', 'overdue'],
+      default: 'paid',
+    },
+    subscriptionPlan: {
+      type: String,
+      enum: ['monthly', 'yearly', 'trial'],
+      default: 'monthly',
+    },
+    subscriptionExpiresAt: {
+      type: Date,
+      default: () => new Date(Date.now() + 30 * 24 * 60 * 60 * 1000), // 30 days default
+    },
+    lastPaymentDate: {
+      type: Date,
+      default: Date.now,
+    },
+    monthlyFee: {
+      type: Number,
+      default: 0,
+    },
   },
   {
     timestamps: true,
