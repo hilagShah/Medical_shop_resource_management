@@ -17,8 +17,17 @@ const addMedicine = async (req, res) => {
     supplier,
   } = req.body;
 
-  if (!name || !genericName || !batchNumber || purchasePrice === undefined || sellingPrice === undefined || !stockQuantity || !expiryDate) {
-    return res.status(400).json({ message: 'Please fill in all required fields' });
+  if (
+    !name ||
+    !genericName ||
+    !batchNumber ||
+    purchasePrice === undefined ||
+    sellingPrice === undefined ||
+    stockQuantity === undefined ||
+    Number(stockQuantity) <= 0 ||
+    !expiryDate
+  ) {
+    return res.status(400).json({ message: 'Please fill in all required fields and enter a stock quantity greater than 0' });
   }
 
   // Check if same medicine with exact batch number exists FOR THIS SHOPKEEPER
@@ -93,9 +102,9 @@ const getMedicines = async (req, res) => {
   }
 
   if (stockStatus === 'low') {
-    query.stockQuantity = { $lte: 10 };
-  } else if (stockStatus === 'out') {
-    query.stockQuantity = 0;
+    query.stockQuantity = { $lte: 10, $gt: 0 };
+  } else {
+    query.stockQuantity = { $gt: 0 };
   }
 
   const now = new Date();
@@ -168,6 +177,16 @@ const updateMedicine = async (req, res) => {
   if (stockQuantity !== undefined) medicine.stockQuantity = Number(stockQuantity);
   if (expiryDate) medicine.expiryDate = new Date(expiryDate);
   if (supplier) medicine.supplier = supplier;
+
+  // If stock reaches 0 or below, remove completely from database
+  if (medicine.stockQuantity <= 0) {
+    await medicine.deleteOne();
+    return res.json({
+      message: `Stock for '${medicine.name}' reached 0 and was removed completely from inventory`,
+      deleted: true,
+      _id: medicine._id,
+    });
+  }
 
   const updatedMedicine = await medicine.save();
   res.json(updatedMedicine);

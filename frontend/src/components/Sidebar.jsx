@@ -24,7 +24,7 @@ const Sidebar = () => {
 
   const shopkeeperLinks = [
     { name: 'Dashboard', path: '/shopkeeper/dashboard', icon: LayoutDashboard },
-    { name: 'POS Terminal', path: '/shopkeeper/pos', icon: ShoppingCart },
+    { name: 'Billing & Sales Counter', path: '/shopkeeper/pos', icon: ShoppingCart },
     { name: 'Stock & Purchase Entry', path: '/shopkeeper/inventory', icon: PackageCheck },
     { name: 'Sales History', path: '/shopkeeper/sales', icon: Receipt },
   ];

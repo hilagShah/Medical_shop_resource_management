@@ -86,35 +86,36 @@ const POS = () => {
     const existingIndex = cart.findIndex((item) => item.medicineId === med._id);
 
     if (existingIndex > -1) {
-      const currentQty = cart[existingIndex].quantity;
-      if (currentQty + 1 > med.stockQuantity) {
-        alert(`Cannot add more. Max stock available: ${med.stockQuantity}`);
-        return;
-      }
-      const updatedCart = [...cart];
-      updatedCart[existingIndex].quantity = (currentQty || 0) + 1;
-      setCart(updatedCart);
-    } else {
-      setCart([
-        ...cart,
-        {
-          medicineId: med._id,
-          name: med.name,
-          genericName: med.genericName,
-          batchNumber: med.batchNumber,
-          unitPrice: med.sellingPrice,
-          purchasePrice: med.purchasePrice || 0,
-          stockQuantity: med.stockQuantity,
-          quantity: 0,
-          itemDiscount: { type: 'flat', value: 0 },
-        },
-      ]);
+      alert(`'${med.name}' is already in the billing cart. Please enter the quantity directly.`);
+      return;
     }
+
+    setCart([
+      ...cart,
+      {
+        medicineId: med._id,
+        name: med.name,
+        genericName: med.genericName,
+        batchNumber: med.batchNumber,
+        unitPrice: med.sellingPrice,
+        purchasePrice: med.purchasePrice || 0,
+        stockQuantity: med.stockQuantity,
+        quantity: '', // Empty field by default instead of 0
+        itemDiscount: { type: 'flat', value: 0 },
+      },
+    ]);
   };
 
   // Update item quantity
   const updateQuantity = (index, newQty) => {
-    const qty = newQty === '' ? 0 : Math.max(0, parseInt(newQty) || 0);
+    if (newQty === '') {
+      const updated = [...cart];
+      updated[index].quantity = '';
+      setCart(updated);
+      return;
+    }
+
+    const qty = Math.max(0, parseInt(newQty, 10) || 0);
     const item = cart[index];
 
     if (qty > item.stockQuantity) {
@@ -145,17 +146,18 @@ const POS = () => {
 
   // CALCULATIONS FOR LIVE BILL BREAKDOWN SIDEBAR & PROFIT/LOSS WARNING ENGINE
   const grossTotalBeforeDiscount = cart.reduce(
-    (sum, item) => sum + item.quantity * item.unitPrice,
+    (sum, item) => sum + (Number(item.quantity) || 0) * item.unitPrice,
     0
   );
 
   const totalPurchaseCost = cart.reduce(
-    (sum, item) => sum + item.quantity * (item.purchasePrice || 0),
+    (sum, item) => sum + (Number(item.quantity) || 0) * (item.purchasePrice || 0),
     0
   );
 
   const totalItemDiscount = cart.reduce((sum, item) => {
-    const itemSub = item.quantity * item.unitPrice;
+    const qty = Number(item.quantity) || 0;
+    const itemSub = qty * item.unitPrice;
     let disc = 0;
     if (item.itemDiscount.type === 'percent') {
       disc = (itemSub * Math.min(100, item.itemDiscount.value)) / 100;
@@ -196,7 +198,7 @@ const POS = () => {
       return;
     }
 
-    const activeItems = cart.filter((it) => (it.quantity || 0) > 0);
+    const activeItems = cart.filter((it) => (Number(it.quantity) || 0) > 0);
     if (activeItems.length === 0) {
       alert('Please enter a billing quantity greater than 0 before completing sale.');
       return;
@@ -217,7 +219,10 @@ const POS = () => {
     setSubmitting(true);
 
     try {
-      const activeItems = cart.filter((it) => (it.quantity || 0) > 0);
+      const activeItems = cart
+        .filter((it) => (Number(it.quantity) || 0) > 0)
+        .map((it) => ({ ...it, quantity: Number(it.quantity) }));
+
       const payload = {
         customerDetails,
         items: activeItems,
@@ -250,9 +255,9 @@ const POS = () => {
         <div>
           <h1 className="text-2xl font-black tracking-tight text-white flex items-center gap-2.5">
             <ShoppingCart className="h-6 w-6 text-cyan-400" />
-            POS Terminal & Checkout
+            Billing & Sales Counter
           </h1>
-          <p className="text-xs text-slate-400 mt-0.5">Point of sale billing with real-time discount loss warnings</p>
+          <p className="text-xs text-slate-400 mt-0.5">Quick retail medicine billing with instant margin calculations</p>
         </div>
       </div>
 
@@ -389,11 +394,12 @@ const POS = () => {
                           <td className="py-3 px-3 text-center">
                             <input
                               type="number"
-                              min="0"
+                              min="1"
                               max={item.stockQuantity}
                               value={item.quantity}
+                              placeholder="Qty"
                               onChange={(e) => updateQuantity(idx, e.target.value)}
-                              className="w-16 text-center rounded-lg border border-slate-700 bg-slate-950 py-1.5 text-xs text-white focus:border-cyan-500 focus:outline-none font-bold font-mono"
+                              className="w-16 text-center rounded-lg border border-slate-700 bg-slate-950 py-1.5 text-xs text-white placeholder-slate-600 focus:border-cyan-500 focus:outline-none font-bold font-mono [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
                             />
                           </td>
 

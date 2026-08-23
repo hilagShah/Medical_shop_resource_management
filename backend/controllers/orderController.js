@@ -73,9 +73,13 @@ const createOrder = async (req, res) => {
       grossTotalBeforeDiscount += itemSubtotalBefore;
       totalItemDiscount += itemDiscountAmount;
 
-      // Decrement stock
+      // Decrement stock or remove completely if stock reaches 0
       medicine.stockQuantity -= qty;
-      await medicine.save({ session });
+      if (medicine.stockQuantity <= 0) {
+        await medicine.deleteOne({ session });
+      } else {
+        await medicine.save({ session });
+      }
 
       processedItems.push({
         medicineId: medicine._id,
