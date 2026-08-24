@@ -6,44 +6,99 @@ const InvoiceModal = ({ order, onClose }) => {
   if (!order) return null;
 
   const [pharmacyDetails, setPharmacyDetails] = useState({
-    name: order.shopkeeperId?.shopName || 'UMA PHARMACY',
-    address: '17, SWASTIK SOPAN-1, OPP. SARTHAK SHREENAND FLAT, NR BANK OF INDIA, SMS ROAD, RAYSAN, GANDHINAGAR-382007',
-    fssaiLic: '20725009001925',
-    gstin: '24AAIFU7369Q1Z7',
-    dlNo1: '20 247971, 20B 247973',
-    dlNo2: '21 247972, 21B 247974',
-    pharmacist1: 'PRAVIN B PATEL (Pharmacist)',
-    pharmacist2: 'DR. VRUDDHI PATEL (Pharmacist)',
-    doctorConsultant: 'DR. KEYUR P. PATEL (Consultant Dental Surgeon & Implantologist)',
-    customerCare: '079 3520 7999',
+    name: order.shopkeeperId?.shopName || 'KEYUR MEDICAL & PROVISION STORE',
+    address: '16, Tapovan Society, Anil mill road, Saraspur, Ahmedabad',
+    regNo: 'Registration No.PI/SRS/00/0007549',
+    gstin: '24ACTPP7760K1ZT',
+    dlNo1: '20GAA-1482,20 B GAA-5112',
+    dlNo2: '21 GAA-1485,21 B GAA-5000',
+    pharmacist: 'PRAVIN B. PATEL (PHARMACIST)',
+    paymentDisclaimer: 'CASH & DEBIT CARDS & PAYTM ARE ACCEPTED',
   });
 
   const [showEditHeader, setShowEditHeader] = useState(false);
 
-  // Tax and GST Calculations
-  const taxRate = order.taxRate !== undefined ? Number(order.taxRate) : (order.tax > 0 && order.grossTotalBeforeDiscount > 0 ? Number(((order.tax / (order.grossTotalBeforeDiscount - order.totalCumulativeDiscount)) * 100).toFixed(2)) : 5);
-  const sgstRate = (taxRate / 2).toFixed(2);
-  const cgstRate = (taxRate / 2).toFixed(2);
+  // Tax and GST Calculations (5% default standard GST in Indian Pharmacy)
+  const taxRate = order.taxRate !== undefined && order.taxRate !== null && Number(order.taxRate) > 0 ? Number(order.taxRate) : 5.0;
+  const sgstRateNum = taxRate / 2;
+  const cgstRateNum = taxRate / 2;
+  const sgstRateStr = sgstRateNum.toFixed(2);
+  const cgstRateStr = cgstRateNum.toFixed(2);
 
-  const grossTotal = order.grossTotalBeforeDiscount || 0;
-  const totalDiscount = order.totalCumulativeDiscount || 0;
-  const taxableValue = Math.max(0, grossTotal - totalDiscount);
-  const taxAmount = order.tax || ((taxableValue * taxRate) / 100);
-  const sgstAmount = taxAmount / 2;
-  const cgstAmount = taxAmount / 2;
-  const rawFinalAmount = taxableValue + taxAmount;
-  const roundedFinalAmount = Math.round(rawFinalAmount);
+  // Date formatted as DD/MM/YYYY
+  const orderDate = new Date(order.createdAt || Date.now());
+  const day = String(orderDate.getDate()).padStart(2, '0');
+  const month = String(orderDate.getMonth() + 1).padStart(2, '0');
+  const year = orderDate.getFullYear();
+  const formattedDate = `${day}/${month}/${year}`;
+
+  // Item Calculations
+  let totalUnits = 0;
+  let totalTaxableVal = 0;
+  let totalSgstVal = 0;
+  let totalCgstVal = 0;
+  let grossTotalVal = 0;
+
+  const calculatedItems = (order.items || []).map((item, idx) => {
+    const itemQty = item.quantity || 1;
+    const unitPrice = item.unitPrice || 0; // MRP
+    const lineGross = itemQty * unitPrice;
+    const itemDiscAmt = item.itemDiscount?.amount || 0;
+    const lineNet = Math.max(0, lineGross - itemDiscAmt);
+    const discPercent = lineGross > 0 ? ((itemDiscAmt / lineGross) * 100).toFixed(2) : '0.00';
+    const saleRatePerUnit = (lineNet / itemQty).toFixed(2);
+
+    // Standard Reverse GST Calculation for MRP inclusive pricing
+    const itemTaxable = lineNet / (1 + taxRate / 100);
+    const itemSgst = itemTaxable * (sgstRateNum / 100);
+    const itemCgst = itemTaxable * (cgstRateNum / 100);
+
+    totalUnits += itemQty;
+    totalTaxableVal += itemTaxable;
+    totalSgstVal += itemSgst;
+    totalCgstVal += itemCgst;
+    grossTotalVal += lineNet;
+
+    const expStr = item.expiryDate
+      ? new Date(item.expiryDate).toLocaleDateString('en-GB', {
+          month: '2-digit',
+          year: '2-digit',
+        })
+      : '03/27';
+
+    return {
+      sr: idx + 1,
+      name: item.name,
+      hsnCode: item.hsnCode || '',
+      batchNumber: item.batchNumber || '',
+      expDate: expStr,
+      unit: item.unit || 1,
+      mrp: unitPrice.toFixed(2),
+      qty: itemQty,
+      saleRate: saleRatePerUnit,
+      discPercent,
+      taxableValue: itemTaxable.toFixed(2),
+      sgstRate: sgstRateStr,
+      sgstValue: itemSgst.toFixed(2),
+      cgstRate: cgstRateStr,
+      cgstValue: itemCgst.toFixed(2),
+      amount: lineNet.toFixed(2),
+    };
+  });
+
+  const rawFinalAmount = grossTotalVal;
+  const roundedFinalAmount = order.finalAmount !== undefined && order.finalAmount !== null ? order.finalAmount : Math.round(rawFinalAmount);
   const roundOff = (roundedFinalAmount - rawFinalAmount).toFixed(2);
 
-  const orderDate = new Date(order.createdAt || Date.now());
-  const formattedDate = `${orderDate.toLocaleDateString('en-GB')} ${orderDate.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}`;
+  // Clean doctor name
+  const rawDoctor = order.customerDetails?.doctorName || 'GRISHMA PATEL';
+  const cleanDoctor = rawDoctor.toUpperCase().startsWith('DR') ? rawDoctor.toUpperCase().replace(/,\s*$/, '') : `DR ${rawDoctor.toUpperCase().replace(/,\s*$/, '')}`;
 
-  // Robust isolated iframe printing to guarantee a single-page A4 Landscape output
+  // Robust isolated iframe printing for A4 Landscape
   const handlePrint = () => {
     const invoiceEl = document.getElementById('printable-invoice');
     if (!invoiceEl) return;
 
-    // Remove any existing print iframe
     const existingIframe = document.getElementById('print-iframe');
     if (existingIframe) existingIframe.remove();
 
@@ -63,11 +118,11 @@ const InvoiceModal = ({ order, onClose }) => {
       <!DOCTYPE html>
       <html>
         <head>
-          <title>Tax Invoice - ${order.orderNumber || 'Bill'}</title>
+          <title>Cash Memo - ${order.orderNumber || 'Invoice'}</title>
           <style>
             @page {
               size: A4 landscape;
-              margin: 5mm;
+              margin: 4mm;
             }
             * {
               box-sizing: border-box;
@@ -82,123 +137,34 @@ const InvoiceModal = ({ order, onClose }) => {
               color: #000000;
               padding: 0;
               margin: 0;
-              font-size: 9.5px;
+              font-size: 8.5px;
               line-height: 1.15;
             }
             .invoice-wrapper {
               width: 100%;
-              max-width: 100%;
               border: 1.5px solid #000;
-              padding: 6px;
-              page-break-inside: avoid;
-              break-inside: avoid;
-            }
-            .header-center {
-              text-align: center;
-              border-bottom: 1px solid #000;
-              padding-bottom: 3px;
-              margin-bottom: 4px;
-            }
-            .shop-title {
-              font-size: 16px;
-              font-weight: 900;
-              letter-spacing: 1px;
-              text-transform: uppercase;
-            }
-            .shop-sub {
-              font-size: 8.5px;
-              color: #222;
-              margin-top: 1px;
-            }
-            .licenses-row {
-              display: flex;
-              justify-content: center;
-              gap: 12px;
-              font-size: 8px;
-              font-weight: bold;
-              margin-top: 2px;
-            }
-            .meta-box {
-              border: 1px solid #000;
-              margin-bottom: 4px;
-            }
-            .meta-title-bar {
-              display: flex;
-              justify-content: space-between;
-              background: #f3f4f6;
-              padding: 2px 6px;
-              border-bottom: 1px solid #000;
-              font-weight: bold;
-              font-size: 9px;
-            }
-            .meta-grid {
-              display: flex;
-              justify-content: space-between;
-              padding: 3px 6px;
-              font-size: 9px;
+              padding: 2px;
             }
             table {
               width: 100%;
               border-collapse: collapse;
-              border: 1px solid #000;
-              font-size: 8.5px;
-              margin-bottom: 4px;
             }
             th, td {
               border: 1px solid #000;
-              padding: 2.5px 3px;
-              text-align: center;
-            }
-            th {
-              background: #f3f4f6 !important;
-              font-weight: bold;
-            }
-            .text-left { text-align: left; }
-            .text-right { text-align: right; }
-            .font-bold { font-weight: bold; }
-            .font-mono { font-family: monospace; }
-            .gst-summary-grid {
-              display: grid;
-              grid-template-columns: repeat(7, 1fr);
-              border: 1px solid #000;
-              text-align: center;
-              font-size: 8.5px;
-              margin-bottom: 4px;
-            }
-            .gst-summary-grid > div {
-              border-right: 1px solid #000;
               padding: 2px 3px;
             }
-            .gst-summary-grid > div:last-child {
-              border-right: none;
-            }
-            .gst-header {
-              background: #f9fafb;
+            th {
+              background: #f4f4f4 !important;
               font-weight: bold;
-              border-bottom: 1px solid #000;
-            }
-            .net-amount-bar {
-              display: flex;
-              justify-content: space-between;
-              align-items: center;
-              border: 1.5px solid #000;
-              background: #f9fafb;
-              padding: 4px 8px;
-              margin-bottom: 4px;
-            }
-            .signatures-row {
-              display: flex;
-              justify-content: space-between;
-              padding-top: 2px;
-              font-size: 8.5px;
-            }
-            .footer-tag {
-              border-top: 1px solid #ccc;
-              margin-top: 4px;
-              padding-top: 2px;
               text-align: center;
-              font-size: 7.5px;
-              color: #555;
+            }
+            .text-left { text-align: left !important; }
+            .text-right { text-align: right !important; }
+            .text-center { text-align: center !important; }
+            .font-bold { font-weight: bold !important; }
+            .font-mono { font-family: monospace !important; }
+            .no-border-table td, .no-border-table th {
+              border: none !important;
             }
           </style>
         </head>
@@ -219,13 +185,13 @@ const InvoiceModal = ({ order, onClose }) => {
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/85 p-2 sm:p-4 backdrop-blur-md overflow-y-auto">
-      <div className="relative w-full max-w-5xl rounded-2xl border border-slate-700 bg-slate-900 p-4 sm:p-6 shadow-2xl my-auto max-h-[95vh] overflow-y-auto text-slate-100">
+      <div className="relative w-full max-w-6xl rounded-2xl border border-slate-700 bg-slate-900 p-4 sm:p-6 shadow-2xl my-auto max-h-[95vh] overflow-y-auto text-slate-100">
         
         {/* MODAL ACTION BAR */}
         <div className="no-print mb-4 flex flex-wrap items-center justify-between gap-3 border-b border-slate-800 pb-4">
           <div className="flex items-center gap-2 text-cyan-400">
             <CheckCircle className="h-5 w-5" />
-            <span className="text-base font-bold text-white">Tax Invoice (A4 Landscape Print Format)</span>
+            <span className="text-base font-bold text-white">Invoice Cash Memo (Authentic A4 Landscape)</span>
           </div>
 
           <div className="flex items-center gap-2">
@@ -278,7 +244,16 @@ const InvoiceModal = ({ order, onClose }) => {
                 />
               </div>
               <div>
-                <label className="text-[11px] text-slate-400 block mb-1">GSTIN</label>
+                <label className="text-[11px] text-slate-400 block mb-1">Registration No.</label>
+                <input
+                  type="text"
+                  value={pharmacyDetails.regNo}
+                  onChange={(e) => setPharmacyDetails({ ...pharmacyDetails, regNo: e.target.value })}
+                  className="w-full rounded-lg border border-slate-800 bg-slate-900 px-2.5 py-1.5 text-white"
+                />
+              </div>
+              <div>
+                <label className="text-[11px] text-slate-400 block mb-1">GST Tin</label>
                 <input
                   type="text"
                   value={pharmacyDetails.gstin}
@@ -287,16 +262,7 @@ const InvoiceModal = ({ order, onClose }) => {
                 />
               </div>
               <div>
-                <label className="text-[11px] text-slate-400 block mb-1">FSSAI Lic No.</label>
-                <input
-                  type="text"
-                  value={pharmacyDetails.fssaiLic}
-                  onChange={(e) => setPharmacyDetails({ ...pharmacyDetails, fssaiLic: e.target.value })}
-                  className="w-full rounded-lg border border-slate-800 bg-slate-900 px-2.5 py-1.5 text-white"
-                />
-              </div>
-              <div>
-                <label className="text-[11px] text-slate-400 block mb-1">DL No. (20, 20B)</label>
+                <label className="text-[11px] text-slate-400 block mb-1">D.L. No. 1</label>
                 <input
                   type="text"
                   value={pharmacyDetails.dlNo1}
@@ -305,7 +271,7 @@ const InvoiceModal = ({ order, onClose }) => {
                 />
               </div>
               <div>
-                <label className="text-[11px] text-slate-400 block mb-1">DL No. (21, 21B)</label>
+                <label className="text-[11px] text-slate-400 block mb-1">D.L. No. 2</label>
                 <input
                   type="text"
                   value={pharmacyDetails.dlNo2}
@@ -314,29 +280,11 @@ const InvoiceModal = ({ order, onClose }) => {
                 />
               </div>
               <div>
-                <label className="text-[11px] text-slate-400 block mb-1">Pharmacist 1</label>
+                <label className="text-[11px] text-slate-400 block mb-1">Pharmacist</label>
                 <input
                   type="text"
-                  value={pharmacyDetails.pharmacist1}
-                  onChange={(e) => setPharmacyDetails({ ...pharmacyDetails, pharmacist1: e.target.value })}
-                  className="w-full rounded-lg border border-slate-800 bg-slate-900 px-2.5 py-1.5 text-white"
-                />
-              </div>
-              <div>
-                <label className="text-[11px] text-slate-400 block mb-1">Pharmacist 2</label>
-                <input
-                  type="text"
-                  value={pharmacyDetails.pharmacist2}
-                  onChange={(e) => setPharmacyDetails({ ...pharmacyDetails, pharmacist2: e.target.value })}
-                  className="w-full rounded-lg border border-slate-800 bg-slate-900 px-2.5 py-1.5 text-white"
-                />
-              </div>
-              <div className="sm:col-span-3">
-                <label className="text-[11px] text-slate-400 block mb-1">Doctor / Consultant Footer Name</label>
-                <input
-                  type="text"
-                  value={pharmacyDetails.doctorConsultant}
-                  onChange={(e) => setPharmacyDetails({ ...pharmacyDetails, doctorConsultant: e.target.value })}
+                  value={pharmacyDetails.pharmacist}
+                  onChange={(e) => setPharmacyDetails({ ...pharmacyDetails, pharmacist: e.target.value })}
                   className="w-full rounded-lg border border-slate-800 bg-slate-900 px-2.5 py-1.5 text-white"
                 />
               </div>
@@ -345,167 +293,207 @@ const InvoiceModal = ({ order, onClose }) => {
         )}
 
         {/* ========================================================================= */}
-        {/* AUTHENTIC TAX INVOICE CASH MEMO (LANDSCAPE A4 PREVIEW)                    */}
+        {/* AUTHENTIC TAX INVOICE CASH MEMO (PERFECT 100% TABLE-BASED RENDER)         */}
         {/* ========================================================================= */}
         <div
           id="printable-invoice"
-          className="bg-white text-black p-4 sm:p-5 rounded-md shadow-lg font-sans border border-black max-w-5xl mx-auto text-[10.5px] leading-tight"
-          style={{ fontFamily: "'Helvetica Neue', Arial, sans-serif" }}
+          className="bg-white text-black p-2 sm:p-3 rounded-sm shadow-xl font-sans border-2 border-black max-w-5xl mx-auto text-[9px] leading-tight"
+          style={{ fontFamily: "Arial, Helvetica, sans-serif" }}
         >
-          {/* TOP PHARMACY HEADER */}
-          <div className="header-center text-center border-b border-black pb-1.5 mb-2">
-            <h1 className="shop-title text-xl sm:text-2xl font-black tracking-wider uppercase">{pharmacyDetails.name}</h1>
-            <p className="shop-sub text-[10px] font-medium text-gray-800 mt-0.5">{pharmacyDetails.address}</p>
-            <div className="licenses-row flex flex-wrap items-center justify-center gap-x-4 gap-y-0.5 text-[9px] font-semibold text-gray-800 mt-1">
-              <span>FSSAI LIC: {pharmacyDetails.fssaiLic}</span>
-              <span>GST Tin: {pharmacyDetails.gstin}</span>
-              <span>DL NO: {pharmacyDetails.dlNo1}</span>
-              <span>DL NO: {pharmacyDetails.dlNo2}</span>
-            </div>
-          </div>
-
-          {/* INVOICE TITLE & META DETAILS */}
-          <div className="meta-box border border-black mb-2">
-            <div className="meta-title-bar flex justify-between items-center bg-gray-100 px-3 py-0.5 border-b border-black text-[10px] font-bold">
-              <span className="uppercase">TAX INVOICE</span>
-              <span className="uppercase">CASH MEMO</span>
-              <span className="uppercase">ORIGINAL</span>
-            </div>
-
-            <div className="meta-grid grid grid-cols-2 p-1.5 gap-y-1 text-[9.5px]">
-              <div>
-                <p><strong>Customer :</strong> <span className="uppercase">{order.customerDetails?.name || 'WALK-IN CUSTOMER'}</span></p>
-                <p><strong>Doctor :</strong> <span className="uppercase">{order.customerDetails?.doctorName ? `DR ${order.customerDetails.doctorName}` : 'DR NILAY MEHTA'}</span></p>
-                {order.customerDetails?.phone && <p><strong>Mobile :</strong> {order.customerDetails.phone}</p>}
-              </div>
-              <div className="text-right">
-                <p><strong>Bill No :</strong> <span className="font-mono font-bold">{order.orderNumber || 'D71'}</span></p>
-                <p><strong>Date :</strong> {formattedDate}</p>
-                <p><strong>Payment :</strong> {order.paymentMethod || 'Cash'}</p>
-              </div>
-            </div>
-          </div>
-
-          {/* LINE ITEMS TABLE */}
-          <table className="w-full border-collapse border border-black text-[9px] mb-2 text-center">
-            <thead>
-              <tr className="bg-gray-100 font-bold border-b border-black text-gray-900">
-                <th className="border-r border-black p-1 w-6">Sr.</th>
-                <th className="border-r border-black p-1 text-left">Description</th>
-                <th className="border-r border-black p-1 w-12">HSN</th>
-                <th className="border-r border-black p-1 w-16">BatchNo</th>
-                <th className="border-r border-black p-1 w-12">ExpDt</th>
-                <th className="border-r border-black p-1 w-8">Unit</th>
-                <th className="border-r border-black p-1 w-14 text-right">M.R.P.</th>
-                <th className="border-r border-black p-1 w-8">Qty</th>
-                <th className="border-r border-black p-1 w-14 text-right">Sale Rate</th>
-                <th className="border-r border-black p-1 w-10 text-right">Disc%</th>
-                <th className="border-r border-black p-1 w-16 text-right">Taxable</th>
-                <th className="border-r border-black p-1 w-10 text-right">SGST%</th>
-                <th className="border-r border-black p-1 w-12 text-right">SGST ₹</th>
-                <th className="border-r border-black p-1 w-10 text-right">CGST%</th>
-                <th className="border-r border-black p-1 w-12 text-right">CGST ₹</th>
-                <th className="p-1 w-16 text-right">Amount</th>
-              </tr>
-            </thead>
+          {/* 1. HEADER TABLE */}
+          <table style={{ width: '100%', borderCollapse: 'collapse', border: '1.5px solid #000', marginBottom: '2px' }}>
             <tbody>
-              {order.items?.map((item, idx) => {
-                const itemQty = item.quantity || 1;
-                const unitPrice = item.unitPrice || 0;
-                const lineGross = itemQty * unitPrice;
-                const itemDiscAmt = item.itemDiscount?.amount || 0;
-                const lineNet = Math.max(0, lineGross - itemDiscAmt);
-                const discPercent = lineGross > 0 ? ((itemDiscAmt / lineGross) * 100).toFixed(2) : '0.00';
-                
-                const itemSgst = (lineNet * (taxRate / 200)).toFixed(2);
-                const itemCgst = (lineNet * (taxRate / 200)).toFixed(2);
-                const itemTotalAmount = (lineNet + Number(itemSgst) + Number(itemCgst)).toFixed(2);
+              {/* Row 1: Shop Name, Badges, Licenses */}
+              <tr style={{ borderBottom: '1px solid #000' }}>
+                {/* Left: Shop Details */}
+                <td style={{ width: '50%', padding: '4px 6px', verticalAlign: 'top', borderRight: '1.5px solid #000' }}>
+                  <div style={{ fontSize: '15px', fontWeight: '900', textTransform: 'uppercase', letterSpacing: '0.5px', color: '#000' }}>
+                    {pharmacyDetails.name}
+                  </div>
+                  <div style={{ fontSize: '8.5px', color: '#111', marginTop: '2px' }}>
+                    {pharmacyDetails.address}
+                  </div>
+                </td>
 
-                const expStr = item.expiryDate ? new Date(item.expiryDate).toLocaleDateString('en-GB', { month: '2-digit', year: '2-digit' }) : '06/27';
+                {/* Center: Invoice & Cash Memo */}
+                <td style={{ width: '22%', padding: '4px 6px', textAlign: 'center', verticalAlign: 'middle', borderRight: '1.5px solid #000' }}>
+                  <div style={{ fontSize: '9px', fontWeight: 'bold', display: 'flex', justifyContent: 'space-around' }}>
+                    <span>INVOICE</span>
+                    <span>CASH MEMO</span>
+                  </div>
+                  <div style={{ fontSize: '8.5px', fontWeight: 'bold', marginTop: '6px', color: '#333' }}>
+                    ORIGINAL
+                  </div>
+                </td>
 
-                return (
-                  <tr key={idx} className="border-b border-black/60">
-                    <td className="border-r border-black p-1 font-medium">{idx + 1}</td>
-                    <td className="border-r border-black p-1 text-left font-bold uppercase truncate max-w-[160px]">
-                      {item.name}
-                    </td>
-                    <td className="border-r border-black p-1 font-mono">{item.hsnCode || '300410'}</td>
-                    <td className="border-r border-black p-1 font-mono font-semibold">{item.batchNumber || '063A'}</td>
-                    <td className="border-r border-black p-1 font-mono">{expStr}</td>
-                    <td className="border-r border-black p-1">{item.unit || itemQty}</td>
-                    <td className="border-r border-black p-1 text-right font-mono">{unitPrice.toFixed(2)}</td>
-                    <td className="border-r border-black p-1 font-bold">{itemQty}</td>
-                    <td className="border-r border-black p-1 text-right font-mono">{(lineNet / itemQty).toFixed(2)}</td>
-                    <td className="border-r border-black p-1 text-right font-mono">{discPercent}</td>
-                    <td className="border-r border-black p-1 text-right font-mono font-medium">{lineNet.toFixed(2)}</td>
-                    <td className="border-r border-black p-1 text-right font-mono">{sgstRate}</td>
-                    <td className="border-r border-black p-1 text-right font-mono">{itemSgst}</td>
-                    <td className="border-r border-black p-1 text-right font-mono">{cgstRate}</td>
-                    <td className="border-r border-black p-1 text-right font-mono">{itemCgst}</td>
-                    <td className="p-1 text-right font-mono font-bold">{itemTotalAmount}</td>
-                  </tr>
-                );
-              })}
+                {/* Right: GST & Drug Licenses */}
+                <td style={{ width: '28%', padding: '4px 6px', verticalAlign: 'top', fontSize: '8px', lineHeight: '1.3' }}>
+                  <div><strong>GST Tin:</strong> {pharmacyDetails.gstin}</div>
+                  <div><strong>D.L.NO:</strong> {pharmacyDetails.dlNo1}</div>
+                  <div>{pharmacyDetails.dlNo2}</div>
+                  <div style={{ marginTop: '1px', color: '#111' }}>{pharmacyDetails.regNo}</div>
+                </td>
+              </tr>
+
+              {/* Row 2: Customer, Doctor, Bill No & Date */}
+              <tr>
+                <td style={{ padding: '3px 6px', verticalAlign: 'top', borderRight: '1.5px solid #000' }}>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '2px' }}>
+                    <span><strong>Customer :</strong> <span style={{ textTransform: 'uppercase', fontWeight: 'bold' }}>{order.customerDetails?.name || 'RIDDHI PARMAR'}</span></span>
+                    <span style={{ color: '#444', marginRight: '15px' }}>Area : -</span>
+                  </div>
+                  <div><strong>Doctor :</strong> <span style={{ textTransform: 'uppercase', fontWeight: 'bold' }}>{cleanDoctor}</span></div>
+                </td>
+
+                <td colSpan="2" style={{ padding: '3px 6px', verticalAlign: 'top', textAlign: 'right' }}>
+                  <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '15px', marginBottom: '2px' }}>
+                    <span><strong>Bill No :</strong> <strong style={{ fontFamily: 'monospace', fontSize: '9.5px' }}>{order.orderNumber || 'C-501'}</strong></span>
+                    <span><strong>{formattedDate}</strong></span>
+                  </div>
+                  <div style={{ color: '#444' }}>Detail : &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;</div>
+                </td>
+              </tr>
             </tbody>
           </table>
 
-          {/* GST BREAKDOWN & SUMMARY FOOTER TABLE */}
-          <div className="gst-summary-grid border border-black mb-2">
-            <div className="gst-header grid grid-cols-7 border-b border-black text-[9px] font-bold bg-gray-50 text-center">
-              <div className="border-r border-black p-1">GST %</div>
-              <div className="border-r border-black p-1">GST Base</div>
-              <div className="border-r border-black p-1">SGST</div>
-              <div className="border-r border-black p-1">CGST</div>
-              <div className="border-r border-black p-1">IGST</div>
-              <div className="border-r border-black p-1">OTHER +/-</div>
-              <div className="p-1">ROUND OFF</div>
-            </div>
-            <div className="grid grid-cols-7 text-[9px] font-mono text-center py-0.5">
-              <div className="border-r border-black">{taxRate.toFixed(2)}%</div>
-              <div className="border-r border-black">{taxableValue.toFixed(2)}</div>
-              <div className="border-r border-black">{sgstAmount.toFixed(2)}</div>
-              <div className="border-r border-black">{cgstAmount.toFixed(2)}</div>
-              <div className="border-r border-black">0.00</div>
-              <div className="border-r border-black">0.00</div>
-              <div className="font-bold">{roundOff}</div>
-            </div>
-          </div>
+          {/* 2. LINE ITEMS TABLE */}
+          <table style={{ width: '100%', borderCollapse: 'collapse', border: '1.5px solid #000', fontSize: '8.5px', textAlign: 'center', marginBottom: '2px' }}>
+            <thead>
+              <tr style={{ background: '#f4f4f4', fontWeight: 'bold', borderBottom: '1px solid #000' }}>
+                <th style={{ border: '1px solid #000', padding: '2px', width: '25px' }} rowSpan="2">Sr.</th>
+                <th style={{ border: '1px solid #000', padding: '2px 4px', textAlign: 'left' }} rowSpan="2">Description</th>
+                <th style={{ border: '1px solid #000', padding: '2px', width: '45px' }} rowSpan="2">HSNCd</th>
+                <th style={{ border: '1px solid #000', padding: '2px', width: '60px' }} rowSpan="2">BatchNo</th>
+                <th style={{ border: '1px solid #000', padding: '2px', width: '40px' }} rowSpan="2">ExpDt</th>
+                <th style={{ border: '1px solid #000', padding: '2px', width: '28px' }} rowSpan="2">Unit</th>
+                <th style={{ border: '1px solid #000', padding: '2px 4px', width: '45px', textAlign: 'right' }} rowSpan="2">M.R.P.</th>
+                <th style={{ border: '1px solid #000', padding: '2px', width: '28px' }} rowSpan="2">Qty</th>
+                <th style={{ border: '1px solid #000', padding: '2px 4px', width: '50px', textAlign: 'right' }} rowSpan="2">Sale Rate<br/>/ Unit</th>
+                <th style={{ border: '1px solid #000', padding: '2px 4px', width: '35px', textAlign: 'right' }} rowSpan="2">Disc%</th>
+                <th style={{ border: '1px solid #000', padding: '2px 4px', width: '50px', textAlign: 'right' }} rowSpan="2">Taxable<br/>Value</th>
+                <th style={{ border: '1px solid #000', padding: '1px 2px', textAlign: 'center' }} colSpan="2">SGST</th>
+                <th style={{ border: '1px solid #000', padding: '1px 2px', textAlign: 'center' }} colSpan="2">CGST</th>
+                <th style={{ border: '1px solid #000', padding: '2px 4px', width: '55px', textAlign: 'right' }} rowSpan="2">Amount</th>
+              </tr>
+              <tr style={{ background: '#f4f4f4', fontWeight: 'bold', borderBottom: '1.5px solid #000', fontSize: '7.5px' }}>
+                <th style={{ border: '1px solid #000', padding: '1px 2px', width: '28px', textAlign: 'right' }}>Rate</th>
+                <th style={{ border: '1px solid #000', padding: '1px 2px', width: '35px', textAlign: 'right' }}>Value</th>
+                <th style={{ border: '1px solid #000', padding: '1px 2px', width: '28px', textAlign: 'right' }}>Rate</th>
+                <th style={{ border: '1px solid #000', padding: '1px 2px', width: '35px', textAlign: 'right' }}>Value</th>
+              </tr>
+            </thead>
+            <tbody>
+              {calculatedItems.map((item, idx) => (
+                <tr key={idx} style={{ borderBottom: '1px solid #ccc' }}>
+                  <td style={{ border: '1px solid #000', padding: '2px' }}>{item.sr}</td>
+                  <td style={{ border: '1px solid #000', padding: '2px 4px', textAlign: 'left', fontWeight: 'bold', textTransform: 'uppercase' }}>
+                    {item.name}
+                  </td>
+                  <td style={{ border: '1px solid #000', padding: '2px', fontFamily: 'monospace' }}>{item.hsnCode}</td>
+                  <td style={{ border: '1px solid #000', padding: '2px', fontFamily: 'monospace', fontWeight: '500' }}>{item.batchNumber}</td>
+                  <td style={{ border: '1px solid #000', padding: '2px', fontFamily: 'monospace' }}>{item.expDate}</td>
+                  <td style={{ border: '1px solid #000', padding: '2px' }}>{item.unit}</td>
+                  <td style={{ border: '1px solid #000', padding: '2px 4px', textAlign: 'right', fontFamily: 'monospace' }}>{item.mrp}</td>
+                  <td style={{ border: '1px solid #000', padding: '2px', fontWeight: 'bold' }}>{item.qty}</td>
+                  <td style={{ border: '1px solid #000', padding: '2px 4px', textAlign: 'right', fontFamily: 'monospace' }}>{item.saleRate}</td>
+                  <td style={{ border: '1px solid #000', padding: '2px 4px', textAlign: 'right', fontFamily: 'monospace' }}>{item.discPercent}</td>
+                  <td style={{ border: '1px solid #000', padding: '2px 4px', textAlign: 'right', fontFamily: 'monospace', fontWeight: '500' }}>{item.taxableValue}</td>
+                  <td style={{ border: '1px solid #000', padding: '2px 4px', textAlign: 'right', fontFamily: 'monospace' }}>{item.sgstRate}</td>
+                  <td style={{ border: '1px solid #000', padding: '2px 4px', textAlign: 'right', fontFamily: 'monospace' }}>{item.sgstValue}</td>
+                  <td style={{ border: '1px solid #000', padding: '2px 4px', textAlign: 'right', fontFamily: 'monospace' }}>{item.cgstRate}</td>
+                  <td style={{ border: '1px solid #000', padding: '2px 4px', textAlign: 'right', fontFamily: 'monospace' }}>{item.cgstValue}</td>
+                  <td style={{ border: '1px solid #000', padding: '2px 4px', textAlign: 'right', fontFamily: 'monospace', fontWeight: 'bold' }}>{item.amount}</td>
+                </tr>
+              ))}
 
-          {/* NET AMOUNT & WORDS BAR */}
-          <div className="net-amount-bar flex justify-between items-center border-2 border-black p-1.5 mb-2 bg-gray-50 text-[10px]">
-            <div>
-              <p className="font-bold">
-                {numberToWords(roundedFinalAmount)}
-              </p>
-            </div>
-            <div className="text-right">
-              <span className="text-xs font-black tracking-wider uppercase mr-2">NET :</span>
-              <span className="text-lg font-black font-mono tracking-tight">₹{roundedFinalAmount.toFixed(2)}</span>
-            </div>
-          </div>
+              {/* SUMMARY TOTALS ROW */}
+              <tr style={{ borderTop: '1.5px solid #000', borderBottom: '1.5px solid #000', fontWeight: 'bold', background: '#fafafa', fontSize: '8.5px' }}>
+                <td style={{ border: '1px solid #000', padding: '2px' }} colSpan="7"></td>
+                <td style={{ border: '1px solid #000', padding: '2px', textAlign: 'center', fontFamily: 'monospace', fontWeight: 'bold' }}>{totalUnits}</td>
+                <td style={{ border: '1px solid #000', padding: '2px' }}></td>
+                <td style={{ border: '1px solid #000', padding: '2px', textAlign: 'right', fontFamily: 'monospace' }}>0.00</td>
+                <td style={{ border: '1px solid #000', padding: '2px 4px', textAlign: 'right', fontFamily: 'monospace', fontWeight: 'bold' }}>{totalTaxableVal.toFixed(2)}</td>
+                <td style={{ border: '1px solid #000', padding: '2px' }}></td>
+                <td style={{ border: '1px solid #000', padding: '2px 4px', textAlign: 'right', fontFamily: 'monospace', fontWeight: 'bold' }}>{totalSgstVal.toFixed(2)}</td>
+                <td style={{ border: '1px solid #000', padding: '2px' }}></td>
+                <td style={{ border: '1px solid #000', padding: '2px 4px', textAlign: 'right', fontFamily: 'monospace', fontWeight: 'bold' }}>{totalCgstVal.toFixed(2)}</td>
+                <td style={{ border: '1px solid #000', padding: '2px 4px', textAlign: 'right', fontFamily: 'monospace', fontWeight: 'bold' }}>{grossTotalVal.toFixed(2)}</td>
+              </tr>
+            </tbody>
+          </table>
 
-          {/* SIGNATURES & LEGAL DISCLAIMER */}
-          <div className="signatures-row flex justify-between pt-1 border-t border-black text-[9px]">
-            <div>
-              <p className="font-bold">FOR: {pharmacyDetails.name}</p>
-              <p className="mt-0.5">{pharmacyDetails.pharmacist1}</p>
-              <p>{pharmacyDetails.pharmacist2}</p>
-              <p>{pharmacyDetails.doctorConsultant}</p>
-            </div>
-            <div className="text-right flex flex-col justify-between">
-              <div>
-                <p className="font-semibold">USER: {order.shopkeeperId?.name || 'ADMIN'}</p>
-                <p className="text-[8px] font-mono">E. & O. E.</p>
-              </div>
-              <div className="pt-4">
-                <span className="border-t border-black px-4 font-semibold text-[8.5px]">Authorised Signatory</span>
-              </div>
-            </div>
-          </div>
+          {/* 3. FOOTER TABLE: LEFT DETAILS + RIGHT GST SUMMARY & NET BOX */}
+          <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '8.5px', marginTop: '2px' }}>
+            <tbody>
+              <tr>
+                {/* Left Side: Store & Pharmacist details */}
+                <td style={{ width: '55%', verticalAlign: 'top', padding: '3px 6px', border: 'none', lineHeight: '1.3' }}>
+                  <div style={{ fontWeight: 'bold', textTransform: 'uppercase' }}>FOR, {pharmacyDetails.name}</div>
+                  <div style={{ fontWeight: 'bold', marginTop: '1px' }}>{pharmacyDetails.pharmacist}</div>
+                  
+                  {/* Space for Stamp & Signature */}
+                  <div style={{ height: '36px', display: 'flex', alignItems: 'flex-end', margin: '3px 0' }}>
+                    <span style={{ fontSize: '7.5px', color: '#666', fontStyle: 'italic', borderTop: '1px dotted #888', paddingTop: '1px', width: '140px' }}>
+                      Authorised Signature & Stamp
+                    </span>
+                  </div>
 
-          {/* FOOTER SYSTEM TAG */}
-          <div className="footer-tag mt-2 pt-1 border-t border-gray-300 text-center text-[8px] text-gray-600">
-            Customer Care No: {pharmacyDetails.customerCare}
+                  <div style={{ fontSize: '8px', fontWeight: '600', color: '#222' }}>{pharmacyDetails.paymentDisclaimer}</div>
+                  <div style={{ fontSize: '8px', color: '#555' }}>Bag</div>
+                  <div style={{ fontWeight: 'bold', fontSize: '9px', marginTop: '3px', borderTop: '1px solid #ddd', paddingTop: '2px' }}>
+                    {numberToWords(roundedFinalAmount)}
+                  </div>
+                </td>
+
+                {/* Right Side: GST Summary Table + NET Box */}
+                <td style={{ width: '45%', verticalAlign: 'top', padding: '2px 4px', border: 'none' }}>
+                  {/* GST Table */}
+                  <table style={{ width: '100%', borderCollapse: 'collapse', border: '1.5px solid #000', textAlign: 'center', fontSize: '8px' }}>
+                    <thead>
+                      <tr style={{ background: '#f4f4f4', fontWeight: 'bold', borderBottom: '1px solid #000' }}>
+                        <th style={{ border: '1px solid #000', padding: '1.5px' }}>GST%</th>
+                        <th style={{ border: '1px solid #000', padding: '1.5px' }}>GST Base</th>
+                        <th style={{ border: '1px solid #000', padding: '1.5px' }}>SGST</th>
+                        <th style={{ border: '1px solid #000', padding: '1.5px' }}>CGST</th>
+                        <th style={{ border: '1px solid #000', padding: '1.5px' }}>IGST</th>
+                        <th style={{ border: '1px solid #000', padding: '1.5px' }}>OTHER +/-</th>
+                        <th style={{ border: '1px solid #000', padding: '1.5px' }}>ROUND OFF</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      <tr style={{ fontFamily: 'monospace', fontSize: '8.5px' }}>
+                        <td style={{ border: '1px solid #000', padding: '2px' }}>{taxRate.toFixed(2)}</td>
+                        <td style={{ border: '1px solid #000', padding: '2px' }}>{totalTaxableVal.toFixed(2)}</td>
+                        <td style={{ border: '1px solid #000', padding: '2px' }}>{totalSgstVal.toFixed(2)}</td>
+                        <td style={{ border: '1px solid #000', padding: '2px' }}>{totalCgstVal.toFixed(2)}</td>
+                        <td style={{ border: '1px solid #000', padding: '2px' }}>0.00</td>
+                        <td style={{ border: '1px solid #000', padding: '2px' }}>0.00</td>
+                        <td style={{ border: '1px solid #000', padding: '2px', fontWeight: 'bold' }}>{roundOff}</td>
+                      </tr>
+                    </tbody>
+                  </table>
+
+                  {/* NET Amount Box */}
+                  <table style={{ width: '100%', borderCollapse: 'collapse', border: '2px solid #000', marginTop: '3px', background: '#f9f9f9' }}>
+                    <tbody>
+                      <tr>
+                        <td style={{ border: 'none', padding: '4px 8px', fontSize: '13px', fontWeight: '900', textAlign: 'left', textTransform: 'uppercase' }}>
+                          NET
+                        </td>
+                        <td style={{ border: 'none', padding: '4px 8px', fontSize: '18px', fontWeight: '900', textAlign: 'right', fontFamily: 'monospace' }}>
+                          {roundedFinalAmount.toFixed(2)}
+                        </td>
+                      </tr>
+                    </tbody>
+                  </table>
+                </td>
+              </tr>
+            </tbody>
+          </table>
+
+          {/* 4. VERY BOTTOM TAG (E & O.E.) */}
+          <div style={{ marginTop: '2px', paddingTop: '1px', borderTop: '1px solid #ccc', display: 'flex', justifyContent: 'flex-end', fontSize: '7.5px', color: '#555', fontWeight: 'bold' }}>
+            <span>E & O.E.</span>
           </div>
         </div>
       </div>

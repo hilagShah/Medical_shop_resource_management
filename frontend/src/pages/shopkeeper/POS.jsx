@@ -182,7 +182,8 @@ const POS = () => {
   const taxAmount = (netAfterAllDiscounts * taxRateNum) / 100;
   const sgstAmount = taxAmount / 2;
   const cgstAmount = taxAmount / 2;
-  const rawPayableAmount = netAfterAllDiscounts + taxAmount;
+  // GST is mentioned for bill compliance, but not added to increase final amount (MRP prices are inclusive)
+  const rawPayableAmount = netAfterAllDiscounts;
   const finalPayableAmount = Math.round(rawPayableAmount);
   const roundOffAmount = (finalPayableAmount - rawPayableAmount).toFixed(2);
 
@@ -651,12 +652,12 @@ const POS = () => {
             {taxRateNum > 0 && (
               <>
                 <div className="flex justify-between text-slate-400 text-[11px] pl-2 border-l border-slate-800">
-                  <span>SGST ({(taxRateNum / 2).toFixed(2)}%):</span>
-                  <span className="font-mono text-slate-300">+₹{sgstAmount.toFixed(2)}</span>
+                  <span>SGST ({(taxRateNum / 2).toFixed(2)}% - Mentioned):</span>
+                  <span className="font-mono text-cyan-400/80">₹{sgstAmount.toFixed(2)}</span>
                 </div>
                 <div className="flex justify-between text-slate-400 text-[11px] pl-2 border-l border-slate-800">
-                  <span>CGST ({(taxRateNum / 2).toFixed(2)}%):</span>
-                  <span className="font-mono text-slate-300">+₹{cgstAmount.toFixed(2)}</span>
+                  <span>CGST ({(taxRateNum / 2).toFixed(2)}% - Mentioned):</span>
+                  <span className="font-mono text-cyan-400/80">₹{cgstAmount.toFixed(2)}</span>
                 </div>
               </>
             )}

@@ -112,10 +112,10 @@ const createOrder = async (req, res) => {
     const totalCumulativeDiscount = totalItemDiscount + orderDiscountAmount;
     const amountAfterAllDiscounts = Math.max(0, grossTotalBeforeDiscount - totalCumulativeDiscount);
 
-    // Tax calculation
+    // Tax calculation (Informative GST mentioned on the bill, not added to increase final amount)
     const taxRateNum = Math.max(0, Number(taxRate) || 0);
     const taxAmount = (amountAfterAllDiscounts * taxRateNum) / 100;
-    const rawTotal = amountAfterAllDiscounts + taxAmount;
+    const rawTotal = amountAfterAllDiscounts; // GST is mentioned in the bill, not added on top of selling price
     const roundedTotal = Math.round(rawTotal);
     const roundOff = roundedTotal - rawTotal;
 
