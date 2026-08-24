@@ -32,6 +32,8 @@ const InventoryManagement = () => {
     genericName: '',
     batchNumber: '',
     category: 'General',
+    hsnCode: '3004',
+    gstRate: 5,
     purchasePrice: '',
     sellingPrice: '',
     stockQuantity: '',
@@ -68,6 +70,8 @@ const InventoryManagement = () => {
         genericName: med.genericName,
         batchNumber: med.batchNumber,
         category: med.category,
+        hsnCode: med.hsnCode || (med.category?.toLowerCase().includes('cosmetic') ? '3304' : '3004'),
+        gstRate: med.gstRate !== undefined ? med.gstRate : (med.category?.toLowerCase().includes('cosmetic') ? 18 : 5),
         purchasePrice: med.purchasePrice,
         sellingPrice: med.sellingPrice,
         stockQuantity: med.stockQuantity,
@@ -82,6 +86,8 @@ const InventoryManagement = () => {
         genericName: '',
         batchNumber: '',
         category: 'General',
+        hsnCode: '3004',
+        gstRate: 5,
         purchasePrice: '',
         sellingPrice: '',
         stockQuantity: '',
@@ -109,9 +115,11 @@ const InventoryManagement = () => {
         genericName: formData.genericName,
         batchNumber: formData.batchNumber,
         category: formData.category,
-        purchasePrice: Number(formData.purchasePrice),
-        sellingPrice: Number(formData.sellingPrice),
-        stockQuantity: Number(formData.stockQuantity),
+        hsnCode: formData.hsnCode,
+        gstRate: Number(formData.gstRate),
+        purchasePrice: parseFloat(formData.purchasePrice),
+        sellingPrice: parseFloat(formData.sellingPrice),
+        stockQuantity: parseInt(formData.stockQuantity, 10),
         expiryDate: formData.expiryDate,
         supplier: {
           name: formData.supplierName,
@@ -380,13 +388,50 @@ const InventoryManagement = () => {
                   <label className="block text-xs font-medium text-slate-300 mb-1">Category</label>
                   <select
                     value={formData.category}
-                    onChange={(e) => setFormData({ ...formData, category: e.target.value })}
+                    onChange={(e) => {
+                      const cat = e.target.value;
+                      const isCosmetic = cat.toLowerCase().includes('cosmetic');
+                      setFormData({
+                        ...formData,
+                        category: cat,
+                        gstRate: isCosmetic ? 18 : (formData.gstRate === 18 ? 5 : formData.gstRate),
+                        hsnCode: isCosmetic ? '3304' : (formData.hsnCode === '3304' ? '3004' : formData.hsnCode),
+                      });
+                    }}
                     className="w-full rounded-xl border border-slate-800 bg-slate-950 py-2 px-3 text-xs text-white focus:border-cyan-500 focus:outline-none"
                   >
                     {categories.filter(c => c !== 'All').map(c => (
                       <option key={c} value={c}>{c}</option>
                     ))}
                   </select>
+                </div>
+              </div>
+
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="block text-xs font-medium text-slate-300 mb-1">GST Tax Slab</label>
+                  <select
+                    value={formData.gstRate}
+                    onChange={(e) => setFormData({ ...formData, gstRate: Number(e.target.value) })}
+                    className="w-full rounded-xl border border-slate-800 bg-slate-950 py-2 px-3 text-xs text-cyan-400 font-bold font-mono focus:border-cyan-500 focus:outline-none"
+                  >
+                    <option value={0}>0% (Exempt)</option>
+                    <option value={5}>5% (Regular Medicines)</option>
+                    <option value={12}>12% (Pharma / Nutra)</option>
+                    <option value={18}>18% (Cosmetics / FMCG)</option>
+                    <option value={28}>28% (Luxury / Other)</option>
+                  </select>
+                </div>
+
+                <div>
+                  <label className="block text-xs font-medium text-slate-300 mb-1">HSN / SAC Code</label>
+                  <input
+                    type="text"
+                    value={formData.hsnCode}
+                    onChange={(e) => setFormData({ ...formData, hsnCode: e.target.value })}
+                    placeholder="e.g. 3004"
+                    className="w-full rounded-xl border border-slate-800 bg-slate-950 py-2 px-3 text-xs text-white focus:border-cyan-500 focus:outline-none font-mono"
+                  />
                 </div>
               </div>
 

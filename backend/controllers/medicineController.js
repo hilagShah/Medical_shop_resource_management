@@ -24,6 +24,8 @@ const addMedicine = async (req, res) => {
     expiryDate,
     supplier,
     invoiceNumber,
+    gstRate,
+    hsnCode,
   } = req.body;
 
   if (
@@ -44,6 +46,9 @@ const addMedicine = async (req, res) => {
   const qty = Number(stockQuantity);
   const expDate = new Date(expiryDate);
   const supp = supplier || { name: 'General Supplier', contact: '' };
+  const itemCategory = category || 'General';
+  const itemGstRate = gstRate !== undefined ? Number(gstRate) : (itemCategory.toLowerCase().includes('cosmetic') ? 18 : 5);
+  const itemHsnCode = hsnCode ? hsnCode.trim() : (itemCategory.toLowerCase().includes('cosmetic') ? '3304' : '3004');
 
   // Check if same medicine with exact batch number exists FOR THIS SHOPKEEPER
   let medicine = await Medicine.findOne({
@@ -58,6 +63,8 @@ const addMedicine = async (req, res) => {
     medicine.purchasePrice = pPrice;
     medicine.sellingPrice = sPrice;
     medicine.expiryDate = expDate;
+    medicine.gstRate = itemGstRate;
+    medicine.hsnCode = itemHsnCode;
     if (supplier) medicine.supplier = supp;
     await medicine.save();
   } else {
@@ -66,7 +73,9 @@ const addMedicine = async (req, res) => {
       name: name.trim(),
       genericName: genericName.trim(),
       batchNumber: batchNumber.trim(),
-      category: category || 'General',
+      category: itemCategory,
+      hsnCode: itemHsnCode,
+      gstRate: itemGstRate,
       purchasePrice: pPrice,
       sellingPrice: sPrice,
       stockQuantity: qty,
@@ -210,12 +219,16 @@ const updateMedicine = async (req, res) => {
     stockQuantity,
     expiryDate,
     supplier,
+    gstRate,
+    hsnCode,
   } = req.body;
 
   medicine.name = name || medicine.name;
   medicine.genericName = genericName || medicine.genericName;
   medicine.batchNumber = batchNumber || medicine.batchNumber;
   medicine.category = category || medicine.category;
+  if (gstRate !== undefined) medicine.gstRate = Number(gstRate);
+  if (hsnCode !== undefined) medicine.hsnCode = hsnCode.trim();
   if (purchasePrice !== undefined) medicine.purchasePrice = Number(purchasePrice);
   if (sellingPrice !== undefined) medicine.sellingPrice = Number(sellingPrice);
   if (stockQuantity !== undefined) medicine.stockQuantity = Number(stockQuantity);
@@ -321,11 +334,16 @@ const batchImportMedicines = async (req, res) => {
         createdBy: req.user._id,
       });
 
+      const itemGstRate = item.gstRate !== undefined ? Number(item.gstRate) : (category.toLowerCase().includes('cosmetic') ? 18 : 5);
+      const itemHsnCode = item.hsnCode ? item.hsnCode.trim() : (category.toLowerCase().includes('cosmetic') ? '3304' : '3004');
+
       if (medicine) {
         medicine.stockQuantity += stockQuantity;
         medicine.purchasePrice = purchasePrice;
         medicine.sellingPrice = sellingPrice;
         medicine.expiryDate = expiryDate;
+        medicine.gstRate = itemGstRate;
+        medicine.hsnCode = itemHsnCode;
         if (itemSupplier.name) medicine.supplier = itemSupplier;
         await medicine.save();
         updatedCount++;
@@ -336,6 +354,8 @@ const batchImportMedicines = async (req, res) => {
           genericName: genericName,
           batchNumber: batchNumber,
           category: category,
+          hsnCode: itemHsnCode,
+          gstRate: itemGstRate,
           purchasePrice: purchasePrice,
           sellingPrice: sellingPrice,
           stockQuantity: stockQuantity,

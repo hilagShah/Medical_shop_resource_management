@@ -23,6 +23,17 @@ const medicineSchema = new mongoose.Schema(
       trim: true,
       default: 'General',
     },
+    hsnCode: {
+      type: String,
+      default: '3004',
+      trim: true,
+    },
+    gstRate: {
+      type: Number,
+      default: 5,
+      min: 0,
+      max: 100,
+    },
     purchasePrice: {
       type: Number,
       required: [true, 'Purchase price is required'],

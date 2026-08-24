@@ -48,10 +48,15 @@ const InvoiceModal = ({ order, onClose }) => {
     const discPercent = lineGross > 0 ? ((itemDiscAmt / lineGross) * 100).toFixed(2) : '0.00';
     const saleRatePerUnit = (lineNet / itemQty).toFixed(2);
 
+    // Product-Wise GST (e.g. 5% for regular meds, 18% for cosmetics)
+    const itemGstRate = item.gstRate !== undefined ? Number(item.gstRate) : (order.taxRate !== undefined ? Number(order.taxRate) : 5.0);
+    const itemSgstRate = (itemGstRate / 2).toFixed(2);
+    const itemCgstRate = (itemGstRate / 2).toFixed(2);
+
     // Standard Reverse GST Calculation for MRP inclusive pricing
-    const itemTaxable = lineNet / (1 + taxRate / 100);
-    const itemSgst = itemTaxable * (sgstRateNum / 100);
-    const itemCgst = itemTaxable * (cgstRateNum / 100);
+    const itemTaxable = lineNet / (1 + itemGstRate / 100);
+    const itemSgst = itemTaxable * (itemGstRate / 200);
+    const itemCgst = itemTaxable * (itemGstRate / 200);
 
     totalUnits += itemQty;
     totalTaxableVal += itemTaxable;
@@ -69,7 +74,7 @@ const InvoiceModal = ({ order, onClose }) => {
     return {
       sr: idx + 1,
       name: item.name,
-      hsnCode: item.hsnCode || '',
+      hsnCode: item.hsnCode || '3004',
       batchNumber: item.batchNumber || '',
       expDate: expStr,
       unit: item.unit || 1,
@@ -77,14 +82,28 @@ const InvoiceModal = ({ order, onClose }) => {
       qty: itemQty,
       saleRate: saleRatePerUnit,
       discPercent,
+      gstRate: itemGstRate,
       taxableValue: itemTaxable.toFixed(2),
-      sgstRate: sgstRateStr,
+      sgstRate: itemSgstRate,
       sgstValue: itemSgst.toFixed(2),
-      cgstRate: cgstRateStr,
+      cgstRate: itemCgstRate,
       cgstValue: itemCgst.toFixed(2),
       amount: lineNet.toFixed(2),
     };
   });
+
+  // Multi-Slab GST Aggregation
+  const slabMap = {};
+  calculatedItems.forEach((it) => {
+    const rate = it.gstRate;
+    if (!slabMap[rate]) {
+      slabMap[rate] = { slab: rate, gstBase: 0, sgst: 0, cgst: 0 };
+    }
+    slabMap[rate].gstBase += parseFloat(it.taxableValue);
+    slabMap[rate].sgst += parseFloat(it.sgstValue);
+    slabMap[rate].cgst += parseFloat(it.cgstValue);
+  });
+  const displaySlabs = Object.values(slabMap).sort((a, b) => a.slab - b.slab);
 
   const rawFinalAmount = grossTotalVal;
   const roundedFinalAmount = order.finalAmount !== undefined && order.finalAmount !== null ? order.finalAmount : Math.round(rawFinalAmount);
@@ -461,15 +480,31 @@ const InvoiceModal = ({ order, onClose }) => {
                       </tr>
                     </thead>
                     <tbody>
-                      <tr style={{ fontFamily: 'monospace', fontSize: '8.5px' }}>
-                        <td style={{ border: '1px solid #000', padding: '2px' }}>{taxRate.toFixed(2)}</td>
-                        <td style={{ border: '1px solid #000', padding: '2px' }}>{totalTaxableVal.toFixed(2)}</td>
-                        <td style={{ border: '1px solid #000', padding: '2px' }}>{totalSgstVal.toFixed(2)}</td>
-                        <td style={{ border: '1px solid #000', padding: '2px' }}>{totalCgstVal.toFixed(2)}</td>
-                        <td style={{ border: '1px solid #000', padding: '2px' }}>0.00</td>
-                        <td style={{ border: '1px solid #000', padding: '2px' }}>0.00</td>
-                        <td style={{ border: '1px solid #000', padding: '2px', fontWeight: 'bold' }}>{roundOff}</td>
-                      </tr>
+                      {displaySlabs.length === 0 ? (
+                        <tr style={{ fontFamily: 'monospace', fontSize: '8.5px' }}>
+                          <td style={{ border: '1px solid #000', padding: '2px' }}>5.00</td>
+                          <td style={{ border: '1px solid #000', padding: '2px' }}>{totalTaxableVal.toFixed(2)}</td>
+                          <td style={{ border: '1px solid #000', padding: '2px' }}>{totalSgstVal.toFixed(2)}</td>
+                          <td style={{ border: '1px solid #000', padding: '2px' }}>{totalCgstVal.toFixed(2)}</td>
+                          <td style={{ border: '1px solid #000', padding: '2px' }}>0.00</td>
+                          <td style={{ border: '1px solid #000', padding: '2px' }}>0.00</td>
+                          <td style={{ border: '1px solid #000', padding: '2px', fontWeight: 'bold' }}>{roundOff}</td>
+                        </tr>
+                      ) : (
+                        displaySlabs.map((s, sIdx) => (
+                          <tr key={sIdx} style={{ fontFamily: 'monospace', fontSize: '8.5px' }}>
+                            <td style={{ border: '1px solid #000', padding: '2px' }}>{s.slab.toFixed(2)}</td>
+                            <td style={{ border: '1px solid #000', padding: '2px' }}>{s.gstBase.toFixed(2)}</td>
+                            <td style={{ border: '1px solid #000', padding: '2px' }}>{s.sgst.toFixed(2)}</td>
+                            <td style={{ border: '1px solid #000', padding: '2px' }}>{s.cgst.toFixed(2)}</td>
+                            <td style={{ border: '1px solid #000', padding: '2px' }}>0.00</td>
+                            <td style={{ border: '1px solid #000', padding: '2px' }}>0.00</td>
+                            <td style={{ border: '1px solid #000', padding: '2px', fontWeight: 'bold' }}>
+                              {sIdx === 0 ? roundOff : '0.00'}
+                            </td>
+                          </tr>
+                        ))
+                      )}
                     </tbody>
                   </table>
 

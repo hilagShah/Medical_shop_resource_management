@@ -42,8 +42,40 @@ const orderItemSchema = new mongoose.Schema(
       type: Number,
       required: true,
     },
+    hsnCode: {
+      type: String,
+      default: '3004',
+    },
+    gstRate: {
+      type: Number,
+      default: 5,
+    },
+    taxableValue: {
+      type: Number,
+      default: 0,
+    },
+    sgst: {
+      type: Number,
+      default: 0,
+    },
+    cgst: {
+      type: Number,
+      default: 0,
+    },
   },
   { _id: true }
+);
+
+const taxSummarySlabSchema = new mongoose.Schema(
+  {
+    slab: { type: Number, required: true },
+    gstBase: { type: Number, required: true },
+    sgst: { type: Number, required: true },
+    cgst: { type: Number, required: true },
+    igst: { type: Number, default: 0 },
+    totalTax: { type: Number, required: true },
+  },
+  { _id: false }
 );
 
 const orderSchema = new mongoose.Schema(
@@ -88,15 +120,24 @@ const orderSchema = new mongoose.Schema(
       required: true,
       default: 0,
     },
-    taxRate: {
+    totalTaxableValue: {
       type: Number,
-      default: 5,
+      default: 0,
     },
     tax: {
       type: Number,
       required: true,
       default: 0,
     },
+    totalSgst: {
+      type: Number,
+      default: 0,
+    },
+    totalCgst: {
+      type: Number,
+      default: 0,
+    },
+    taxSummary: [taxSummarySlabSchema],
     roundOff: {
       type: Number,
       default: 0,

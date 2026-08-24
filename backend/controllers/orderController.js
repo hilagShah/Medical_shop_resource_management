@@ -81,12 +81,23 @@ const createOrder = async (req, res) => {
         await medicine.save({ session });
       }
 
+      const itemGstRate = item.gstRate !== undefined ? Number(item.gstRate) : (medicine.gstRate !== undefined ? Number(medicine.gstRate) : 5);
+      const hsnCode = item.hsnCode || medicine.hsnCode || '3004';
+      const itemTaxable = Number((itemSubtotalAfter / (1 + itemGstRate / 100)).toFixed(2));
+      const itemSgst = Number((itemTaxable * (itemGstRate / 200)).toFixed(2));
+      const itemCgst = Number((itemTaxable * (itemGstRate / 200)).toFixed(2));
+
       processedItems.push({
         medicineId: medicine._id,
         name: medicine.name,
         batchNumber: medicine.batchNumber,
         quantity: qty,
         unitPrice,
+        hsnCode,
+        gstRate: itemGstRate,
+        taxableValue: itemTaxable,
+        sgst: itemSgst,
+        cgst: itemCgst,
         itemDiscount: {
           type: discountType,
           value: discountValue,
@@ -112,10 +123,34 @@ const createOrder = async (req, res) => {
     const totalCumulativeDiscount = totalItemDiscount + orderDiscountAmount;
     const amountAfterAllDiscounts = Math.max(0, grossTotalBeforeDiscount - totalCumulativeDiscount);
 
-    // Tax calculation (Informative GST mentioned on the bill, not added to increase final amount)
-    const taxRateNum = Math.max(0, Number(taxRate) || 0);
-    const taxAmount = (amountAfterAllDiscounts * taxRateNum) / 100;
-    const rawTotal = amountAfterAllDiscounts; // GST is mentioned in the bill, not added on top of selling price
+    // Multi-Slab GST Tax Summary aggregation
+    const slabMap = {};
+    for (const it of processedItems) {
+      const slab = it.gstRate;
+      if (!slabMap[slab]) {
+        slabMap[slab] = { slab, gstBase: 0, sgst: 0, cgst: 0, igst: 0, totalTax: 0 };
+      }
+      slabMap[slab].gstBase += it.taxableValue;
+      slabMap[slab].sgst += it.sgst;
+      slabMap[slab].cgst += it.cgst;
+      slabMap[slab].totalTax += (it.sgst + it.cgst);
+    }
+
+    const taxSummary = Object.values(slabMap).map((s) => ({
+      slab: s.slab,
+      gstBase: Number(s.gstBase.toFixed(2)),
+      sgst: Number(s.sgst.toFixed(2)),
+      cgst: Number(s.cgst.toFixed(2)),
+      igst: 0,
+      totalTax: Number(s.totalTax.toFixed(2)),
+    }));
+
+    const totalTaxableValue = Number(processedItems.reduce((acc, it) => acc + it.taxableValue, 0).toFixed(2));
+    const totalSgst = Number(processedItems.reduce((acc, it) => acc + it.sgst, 0).toFixed(2));
+    const totalCgst = Number(processedItems.reduce((acc, it) => acc + it.cgst, 0).toFixed(2));
+    const totalTax = Number((totalSgst + totalCgst).toFixed(2));
+
+    const rawTotal = amountAfterAllDiscounts; // GST is informative and included in retail selling price
     const roundedTotal = Math.round(rawTotal);
     const roundOff = roundedTotal - rawTotal;
 
@@ -139,8 +174,11 @@ const createOrder = async (req, res) => {
         amount: Number(orderDiscountAmount.toFixed(2)),
       },
       totalCumulativeDiscount: Number(totalCumulativeDiscount.toFixed(2)),
-      taxRate: taxRateNum,
-      tax: Number(taxAmount.toFixed(2)),
+      totalTaxableValue,
+      totalSgst,
+      totalCgst,
+      tax: totalTax,
+      taxSummary,
       roundOff: Number(roundOff.toFixed(2)),
       finalAmount: Number(roundedTotal.toFixed(2)),
       paymentMethod: paymentMethod || 'Cash',

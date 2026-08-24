@@ -90,6 +90,9 @@ const POS = () => {
       return;
     }
 
+    const defaultGst = med.gstRate !== undefined ? Number(med.gstRate) : (med.category?.toLowerCase().includes('cosmetic') ? 18 : 5);
+    const defaultHsn = med.hsnCode || (med.category?.toLowerCase().includes('cosmetic') ? '3304' : '3004');
+
     setCart([
       ...cart,
       {
@@ -97,10 +100,13 @@ const POS = () => {
         name: med.name,
         genericName: med.genericName,
         batchNumber: med.batchNumber,
+        hsnCode: defaultHsn,
+        category: med.category || 'General',
         unitPrice: med.sellingPrice,
         purchasePrice: med.purchasePrice || 0,
         stockQuantity: med.stockQuantity,
         quantity: '', // Empty field by default instead of 0
+        gstRate: defaultGst,
         itemDiscount: { type: 'flat', value: 0 },
       },
     ]);
@@ -128,6 +134,13 @@ const POS = () => {
     setCart(updated);
   };
 
+  // Update item GST Rate
+  const updateItemGstRate = (index, rate) => {
+    const updated = [...cart];
+    updated[index].gstRate = Math.max(0, parseFloat(rate) || 0);
+    setCart(updated);
+  };
+
   // Update item discount
   const updateItemDiscount = (index, field, value) => {
     const updated = [...cart];
@@ -144,7 +157,7 @@ const POS = () => {
     setCart(cart.filter((_, i) => i !== index));
   };
 
-  // CALCULATIONS FOR LIVE BILL BREAKDOWN SIDEBAR & PROFIT/LOSS WARNING ENGINE
+  // CALCULATIONS FOR LIVE MULTI-SLAB GST & PROFIT/LOSS WARNING ENGINE
   const grossTotalBeforeDiscount = cart.reduce(
     (sum, item) => sum + (Number(item.quantity) || 0) * item.unitPrice,
     0
@@ -178,11 +191,42 @@ const POS = () => {
 
   const totalCumulativeDiscount = totalItemDiscount + orderDiscountAmount;
   const netAfterAllDiscounts = Math.max(0, grossTotalBeforeDiscount - totalCumulativeDiscount);
-  const taxRateNum = Math.max(0, parseFloat(taxRate) || 0);
-  const taxAmount = (netAfterAllDiscounts * taxRateNum) / 100;
-  const sgstAmount = taxAmount / 2;
-  const cgstAmount = taxAmount / 2;
-  // GST is mentioned for bill compliance, but not added to increase final amount (MRP prices are inclusive)
+
+  // Multi-Slab GST Aggregation from individual line-items
+  const slabMap = {};
+  cart.forEach((item) => {
+    const qty = Number(item.quantity) || 0;
+    if (qty <= 0) return;
+    const itemGross = qty * item.unitPrice;
+    let disc = 0;
+    if (item.itemDiscount.type === 'percent') {
+      disc = (itemGross * Math.min(100, item.itemDiscount.value)) / 100;
+    } else {
+      disc = Math.min(itemGross, item.itemDiscount.value);
+    }
+    const itemNet = Math.max(0, itemGross - disc);
+    const rate = Number(item.gstRate !== undefined ? item.gstRate : 5);
+    const taxable = itemNet / (1 + rate / 100);
+    const sgst = taxable * (rate / 200);
+    const cgst = taxable * (rate / 200);
+
+    if (!slabMap[rate]) {
+      slabMap[rate] = { rate, gstBase: 0, sgst: 0, cgst: 0, totalTax: 0, itemsCount: 0 };
+    }
+    slabMap[rate].gstBase += taxable;
+    slabMap[rate].sgst += sgst;
+    slabMap[rate].cgst += cgst;
+    slabMap[rate].totalTax += (sgst + cgst);
+    slabMap[rate].itemsCount += 1;
+  });
+
+  const activeSlabs = Object.values(slabMap).sort((a, b) => a.rate - b.rate);
+  const totalTaxableValue = activeSlabs.reduce((sum, s) => sum + s.gstBase, 0);
+  const totalSgstAmount = activeSlabs.reduce((sum, s) => sum + s.sgst, 0);
+  const totalCgstAmount = activeSlabs.reduce((sum, s) => sum + s.cgst, 0);
+  const totalGstAmount = totalSgstAmount + totalCgstAmount;
+
+  // Final retail payable amount (GST is informative / included in MRP)
   const rawPayableAmount = netAfterAllDiscounts;
   const finalPayableAmount = Math.round(rawPayableAmount);
   const roundOffAmount = (finalPayableAmount - rawPayableAmount).toFixed(2);
@@ -359,17 +403,18 @@ const POS = () => {
                   <thead>
                     <tr className="border-b border-slate-800 text-slate-400 font-semibold uppercase tracking-wider">
                       <th className="py-2.5 px-3">Medicine / Batch</th>
-                      <th className="py-2.5 px-3 text-center w-24">Qty</th>
-                      <th className="py-2.5 px-3 text-right w-28">Unit Rate</th>
-                      <th className="py-2.5 px-3 text-center w-32">Line Discount</th>
-                      <th className="py-2.5 px-3 text-right w-28">Subtotal</th>
-                      <th className="py-2.5 px-3 text-center w-12"></th>
+                      <th className="py-2.5 px-2 text-center w-20">Qty</th>
+                      <th className="py-2.5 px-2 text-right w-24">Unit Rate</th>
+                      <th className="py-2.5 px-2 text-center w-28">GST Slab</th>
+                      <th className="py-2.5 px-2 text-center w-28">Line Discount</th>
+                      <th className="py-2.5 px-2 text-right w-24">Subtotal</th>
+                      <th className="py-2.5 px-2 text-center w-10"></th>
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-slate-800/60 text-slate-300">
                     {cart.map((item, idx) => {
-                      const itemSubtotal = item.quantity * item.unitPrice;
-                      const itemCost = item.quantity * (item.purchasePrice || 0);
+                      const itemSubtotal = (Number(item.quantity) || 0) * item.unitPrice;
+                      const itemCost = (Number(item.quantity) || 0) * (item.purchasePrice || 0);
 
                       let discAmt = 0;
                       if (item.itemDiscount.type === 'percent') {
@@ -377,22 +422,33 @@ const POS = () => {
                       } else {
                         discAmt = Math.min(itemSubtotal, item.itemDiscount.value);
                       }
-                      const netItemSubtotal = itemSubtotal - discAmt;
+                      const netItemSubtotal = Math.max(0, itemSubtotal - discAmt);
                       const itemLoss = itemCost - netItemSubtotal;
-                      const isItemLoss = itemLoss > 0;
+                      const isItemLoss = itemLoss > 0 && (Number(item.quantity) || 0) > 0;
 
                       return (
                         <tr key={item.medicineId} className={`transition-colors ${isItemLoss ? 'bg-rose-500/5 hover:bg-rose-500/10' : 'hover:bg-slate-800/30'}`}>
                           <td className="py-3 px-3">
-                            <p className="font-semibold text-white">{item.name}</p>
-                            <div className="flex items-center gap-2">
+                            <div className="flex items-center gap-1.5 flex-wrap">
+                              <p className="font-semibold text-white">{item.name}</p>
+                              {item.category && (
+                                <span className={`text-[9px] px-1.5 py-0.2 rounded font-medium ${
+                                  item.category.toLowerCase().includes('cosmetic')
+                                    ? 'bg-purple-500/20 text-purple-300 border border-purple-500/30'
+                                    : 'bg-slate-800 text-slate-400'
+                                }`}>
+                                  {item.category}
+                                </span>
+                              )}
+                            </div>
+                            <div className="flex items-center gap-2 mt-0.5">
                               <p className="text-[10px] text-slate-400 font-mono">Batch: {item.batchNumber}</p>
                               <span className="text-[9px] text-slate-500 font-mono">(Cost: ₹{item.purchasePrice.toFixed(2)})</span>
                             </div>
                           </td>
 
                           {/* Qty Input */}
-                          <td className="py-3 px-3 text-center">
+                          <td className="py-3 px-2 text-center">
                             <input
                               type="number"
                               min="1"
@@ -404,15 +460,40 @@ const POS = () => {
                             />
                           </td>
 
-                          <td className="py-3 px-3 text-right font-mono text-slate-300">₹{item.unitPrice.toFixed(2)}</td>
+                          <td className="py-3 px-2 text-right font-mono text-slate-300">₹{item.unitPrice.toFixed(2)}</td>
+
+                          {/* Product-Wise GST Rate Selector */}
+                          <td className="py-3 px-2 text-center">
+                            <select
+                              value={item.gstRate}
+                              onChange={(e) => updateItemGstRate(idx, e.target.value)}
+                              className={`w-full rounded-md border px-1.5 py-1 text-[11px] font-bold font-mono focus:border-cyan-500 focus:outline-none ${
+                                Number(item.gstRate) === 18
+                                  ? 'border-purple-500/50 bg-purple-950/40 text-purple-300'
+                                  : Number(item.gstRate) === 12
+                                  ? 'border-amber-500/50 bg-amber-950/40 text-amber-300'
+                                  : Number(item.gstRate) === 28
+                                  ? 'border-rose-500/50 bg-rose-950/40 text-rose-300'
+                                  : Number(item.gstRate) === 0
+                                  ? 'border-slate-800 bg-slate-950 text-slate-400'
+                                  : 'border-cyan-500/50 bg-cyan-950/40 text-cyan-300'
+                              }`}
+                            >
+                              <option value={0}>0% (Exempt)</option>
+                              <option value={5}>5% (Regular Meds)</option>
+                              <option value={12}>12% (Pharma/Nutra)</option>
+                              <option value={18}>18% (Cosmetics/FMCG)</option>
+                              <option value={28}>28% (Luxury/Other)</option>
+                            </select>
+                          </td>
 
                           {/* Line Item Discount Controls */}
-                          <td className="py-3">
-                            <div className="flex items-center gap-1">
+                          <td className="py-3 px-2">
+                            <div className="flex items-center gap-1 justify-center">
                               <select
                                 value={item.itemDiscount.type}
                                 onChange={(e) => updateItemDiscount(idx, 'type', e.target.value)}
-                                className="rounded-md border border-slate-800 bg-slate-950 px-1.5 py-1 text-[10px] text-slate-300"
+                                className="rounded-md border border-slate-800 bg-slate-950 px-1 py-1 text-[10px] text-slate-300"
                               >
                                 <option value="flat">₹</option>
                                 <option value="percent">%</option>
@@ -422,25 +503,26 @@ const POS = () => {
                                 min="0"
                                 value={item.itemDiscount.value}
                                 onChange={(e) => updateItemDiscount(idx, 'value', e.target.value)}
-                                className="w-16 rounded-md border border-slate-800 bg-slate-950 py-1 px-1.5 text-xs text-emerald-400 font-mono focus:border-cyan-500 focus:outline-none"
+                                className="w-14 rounded-md border border-slate-800 bg-slate-950 py-1 px-1.5 text-xs text-emerald-400 font-mono focus:border-cyan-500 focus:outline-none"
                               />
                             </div>
                           </td>
 
                           {/* Net Subtotal & Item-level Loss Badge */}
-                          <td className="py-3 text-right">
+                          <td className="py-3 px-2 text-right">
                             <p className="font-mono font-bold text-white">₹{netItemSubtotal.toFixed(2)}</p>
                             {isItemLoss && (
-                              <span className="inline-flex items-center gap-0.5 text-[10px] font-bold text-rose-400">
-                                ⚠️ -₹{itemLoss.toFixed(2)} Loss
+                              <span className="inline-flex items-center gap-0.5 text-[9px] font-bold text-rose-400">
+                                ⚠️ -₹{itemLoss.toFixed(2)}
                               </span>
                             )}
                           </td>
 
-                          <td className="py-3 text-center">
+                          <td className="py-3 px-2 text-center">
                             <button
                               onClick={() => removeFromCart(idx)}
-                              className="text-slate-500 hover:text-rose-400 p-1"
+                              className="text-slate-500 hover:text-rose-400 p-1 transition-colors"
+                              title="Remove item"
                             >
                               <Trash2 className="h-4 w-4" />
                             </button>
@@ -569,46 +651,43 @@ const POS = () => {
             </div>
           </div>
 
-          {/* Manual Tax / GST Input Field with Preset Buttons */}
+          {/* Product-Wise Multi-Slab GST Live Breakdown Card */}
           <div className="rounded-xl bg-slate-950 p-3.5 border border-slate-800 space-y-2.5">
             <div className="flex items-center justify-between text-xs font-semibold text-slate-300">
-              <span>Manual GST / Tax Rate</span>
-              <span className="font-mono text-cyan-400">+{taxRateNum}%</span>
+              <span className="flex items-center gap-1.5">
+                <span className="h-2 w-2 rounded-full bg-cyan-400"></span>
+                Product-Wise GST Slabs
+              </span>
+              <span className="font-mono text-cyan-400">{activeSlabs.length} Active Slab{activeSlabs.length !== 1 ? 's' : ''}</span>
             </div>
 
-            {/* Quick GST Preset Chips */}
-            <div className="flex items-center gap-1.5 flex-wrap">
-              {[0, 5, 12, 18, 28].map((rate) => (
-                <button
-                  key={rate}
-                  type="button"
-                  onClick={() => setTaxRate(rate)}
-                  className={`px-2.5 py-1 text-[11px] font-bold rounded-lg transition-all border ${
-                    taxRate === rate
-                      ? 'bg-cyan-500/20 text-cyan-400 border-cyan-500/50 shadow-sm'
-                      : 'bg-slate-900 text-slate-400 border-slate-800 hover:text-slate-200'
-                  }`}
-                >
-                  {rate}%
-                </button>
-              ))}
-            </div>
-
-            {/* Direct Numeric Input for Custom Tax */}
-            <div className="flex items-center gap-2 pt-1">
-              <span className="text-[11px] text-slate-400">Custom Tax Rate (%):</span>
-              <div className="relative flex-1">
-                <input
-                  type="number"
-                  min="0"
-                  step="0.1"
-                  value={taxRate}
-                  onChange={(e) => setTaxRate(e.target.value === '' ? '' : Math.max(0, parseFloat(e.target.value) || 0))}
-                  placeholder="e.g. 5"
-                  className="w-full text-right rounded-lg border border-slate-800 bg-slate-900 px-3 py-1.5 text-xs text-white font-mono font-bold focus:border-cyan-500 focus:outline-none"
-                />
+            {activeSlabs.length === 0 ? (
+              <p className="text-[11px] text-slate-500 italic">Add items to view automatic product-wise GST breakdown.</p>
+            ) : (
+              <div className="space-y-1.5 pt-1">
+                {activeSlabs.map((s) => (
+                  <div key={s.rate} className="rounded-lg bg-slate-900/80 p-2 border border-slate-800/80 text-[11px] space-y-1">
+                    <div className="flex justify-between items-center font-bold">
+                      <span className={`${
+                        s.rate === 18 ? 'text-purple-400' :
+                        s.rate === 12 ? 'text-amber-400' :
+                        s.rate === 28 ? 'text-rose-400' :
+                        s.rate === 0 ? 'text-slate-400' : 'text-cyan-400'
+                      }`}>
+                        GST {s.rate.toFixed(2)}% Slab ({s.itemsCount} item{s.itemsCount > 1 ? 's' : ''})
+                      </span>
+                      <span className="text-slate-300 font-mono">₹{s.gstBase.toFixed(2)} Base</span>
+                    </div>
+                    {s.rate > 0 && (
+                      <div className="flex justify-between text-[10px] text-slate-400 font-mono pl-1 border-l border-slate-800">
+                        <span>SGST {(s.rate / 2).toFixed(1)}%: ₹{s.sgst.toFixed(2)}</span>
+                        <span>CGST {(s.rate / 2).toFixed(1)}%: ₹{s.cgst.toFixed(2)}</span>
+                      </div>
+                    )}
+                  </div>
+                ))}
               </div>
-            </div>
+            )}
           </div>
 
           {/* LIVE BILL BREAKDOWN LISTING */}
@@ -645,19 +724,19 @@ const POS = () => {
             )}
 
             <div className="flex justify-between text-slate-400">
-              <span>Taxable Value (Base):</span>
-              <span className="font-mono text-slate-200">₹{netAfterAllDiscounts.toFixed(2)}</span>
+              <span>Total Taxable Value (Base):</span>
+              <span className="font-mono text-slate-200">₹{totalTaxableValue.toFixed(2)}</span>
             </div>
 
-            {taxRateNum > 0 && (
+            {totalGstAmount > 0 && (
               <>
                 <div className="flex justify-between text-slate-400 text-[11px] pl-2 border-l border-slate-800">
-                  <span>SGST ({(taxRateNum / 2).toFixed(2)}% - Mentioned):</span>
-                  <span className="font-mono text-cyan-400/80">₹{sgstAmount.toFixed(2)}</span>
+                  <span>Total SGST (Mentioned):</span>
+                  <span className="font-mono text-cyan-400/80">₹{totalSgstAmount.toFixed(2)}</span>
                 </div>
                 <div className="flex justify-between text-slate-400 text-[11px] pl-2 border-l border-slate-800">
-                  <span>CGST ({(taxRateNum / 2).toFixed(2)}% - Mentioned):</span>
-                  <span className="font-mono text-cyan-400/80">₹{cgstAmount.toFixed(2)}</span>
+                  <span>Total CGST (Mentioned):</span>
+                  <span className="font-mono text-cyan-400/80">₹{totalCgstAmount.toFixed(2)}</span>
                 </div>
               </>
             )}
