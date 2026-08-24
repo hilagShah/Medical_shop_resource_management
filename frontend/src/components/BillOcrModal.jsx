@@ -207,6 +207,8 @@ const BillOcrModal = ({ isOpen, onClose, onSuccess }) => {
     try {
       const res = await API.post('/medicines/batch-import', {
         supplier,
+        invoiceNumber: invoiceMeta.number,
+        invoiceDate: invoiceMeta.date,
         items,
       });
 

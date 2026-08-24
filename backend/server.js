@@ -37,6 +37,7 @@ app.use('/api/auth', require('./routes/authRoutes'));
 app.use('/api/users', require('./routes/userRoutes'));
 app.use('/api/medicines', require('./routes/medicineRoutes'));
 app.use('/api/orders', require('./routes/orderRoutes'));
+app.use('/api/purchases', require('./routes/purchaseRoutes'));
 
 app.get('/api/health', (req, res) => {
   res.json({ status: 'API is running cleanly', timestamp: new Date() });

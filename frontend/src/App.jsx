@@ -11,11 +11,13 @@ import AdminDashboard from './pages/admin/AdminDashboard';
 import ShopkeeperManagement from './pages/admin/ShopkeeperManagement';
 import GlobalInventory from './pages/admin/GlobalInventory';
 import GlobalSales from './pages/admin/GlobalSales';
+import GlobalPurchases from './pages/admin/GlobalPurchases';
 
 import ShopkeeperDashboard from './pages/shopkeeper/ShopkeeperDashboard';
 import POS from './pages/shopkeeper/POS';
 import InventoryManagement from './pages/shopkeeper/InventoryManagement';
 import SalesHistory from './pages/shopkeeper/SalesHistory';
+import PurchaseHistory from './pages/shopkeeper/PurchaseHistory';
 
 // Main App Layout Wrapper (Navbar + Sidebar + Content)
 const MainLayout = () => {
@@ -56,6 +58,7 @@ function App() {
               <Route path="/admin/shopkeepers" element={<ShopkeeperManagement />} />
               <Route path="/admin/inventory" element={<GlobalInventory />} />
               <Route path="/admin/sales" element={<GlobalSales />} />
+              <Route path="/admin/purchases" element={<GlobalPurchases />} />
             </Route>
           </Route>
 
@@ -65,6 +68,7 @@ function App() {
               <Route path="/shopkeeper/dashboard" element={<ShopkeeperDashboard />} />
               <Route path="/shopkeeper/pos" element={<POS />} />
               <Route path="/shopkeeper/inventory" element={<InventoryManagement />} />
+              <Route path="/shopkeeper/purchases" element={<PurchaseHistory />} />
               <Route path="/shopkeeper/sales" element={<SalesHistory />} />
             </Route>
           </Route>

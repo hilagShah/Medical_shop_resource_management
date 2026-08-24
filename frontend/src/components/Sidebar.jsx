@@ -9,6 +9,7 @@ import {
   Receipt,
   BarChart3,
   PackageCheck,
+  Truck,
 } from 'lucide-react';
 
 const Sidebar = () => {
@@ -20,12 +21,14 @@ const Sidebar = () => {
     { name: 'Shopkeeper Management', path: '/admin/shopkeepers', icon: Users },
     { name: 'Global Inventory', path: '/admin/inventory', icon: Pill },
     { name: 'Global Sales Logs', path: '/admin/sales', icon: BarChart3 },
+    { name: 'Global Purchases', path: '/admin/purchases', icon: Truck },
   ];
 
   const shopkeeperLinks = [
     { name: 'Dashboard', path: '/shopkeeper/dashboard', icon: LayoutDashboard },
     { name: 'Billing & Sales Counter', path: '/shopkeeper/pos', icon: ShoppingCart },
     { name: 'Stock & Purchase Entry', path: '/shopkeeper/inventory', icon: PackageCheck },
+    { name: 'Purchase History', path: '/shopkeeper/purchases', icon: Truck },
     { name: 'Sales History', path: '/shopkeeper/sales', icon: Receipt },
   ];
 

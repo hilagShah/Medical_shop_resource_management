@@ -1,5 +1,13 @@
 const Medicine = require('../models/Medicine');
+const Purchase = require('../models/Purchase');
 const { parsePurchaseBillImage } = require('../services/ocrService');
+
+// Helper to generate unique purchase number
+const generatePurchaseNumber = () => {
+  const dateStr = new Date().toISOString().slice(0, 10).replace(/-/g, '');
+  const randomStr = Math.random().toString(36).substring(2, 7).toUpperCase();
+  return `PUR-${dateStr}-${randomStr}`;
+};
 
 // @desc    Add new medicine entry or update stock quantity if batch exists for this shopkeeper
 // @route   POST /api/medicines
@@ -15,6 +23,7 @@ const addMedicine = async (req, res) => {
     stockQuantity,
     expiryDate,
     supplier,
+    invoiceNumber,
   } = req.body;
 
   if (
@@ -30,6 +39,12 @@ const addMedicine = async (req, res) => {
     return res.status(400).json({ message: 'Please fill in all required fields and enter a stock quantity greater than 0' });
   }
 
+  const pPrice = Number(purchasePrice);
+  const sPrice = Number(sellingPrice);
+  const qty = Number(stockQuantity);
+  const expDate = new Date(expiryDate);
+  const supp = supplier || { name: 'General Supplier', contact: '' };
+
   // Check if same medicine with exact batch number exists FOR THIS SHOPKEEPER
   let medicine = await Medicine.findOne({
     batchNumber: batchNumber.trim(),
@@ -39,35 +54,64 @@ const addMedicine = async (req, res) => {
 
   if (medicine) {
     // Auto-increment stock
-    medicine.stockQuantity += Number(stockQuantity);
-    medicine.purchasePrice = Number(purchasePrice);
-    medicine.sellingPrice = Number(sellingPrice);
-    medicine.expiryDate = expiryDate;
-    if (supplier) medicine.supplier = supplier;
+    medicine.stockQuantity += qty;
+    medicine.purchasePrice = pPrice;
+    medicine.sellingPrice = sPrice;
+    medicine.expiryDate = expDate;
+    if (supplier) medicine.supplier = supp;
     await medicine.save();
-
-    return res.status(200).json({
-      message: `Stock updated for existing batch ${batchNumber}`,
-      medicine,
+  } else {
+    // Create new medicine record assigned to the logged-in shopkeeper
+    medicine = await Medicine.create({
+      name: name.trim(),
+      genericName: genericName.trim(),
+      batchNumber: batchNumber.trim(),
+      category: category || 'General',
+      purchasePrice: pPrice,
+      sellingPrice: sPrice,
+      stockQuantity: qty,
+      expiryDate: expDate,
+      supplier: supp,
+      createdBy: req.user._id,
     });
   }
 
-  // Create new medicine record assigned to the logged-in shopkeeper
-  medicine = await Medicine.create({
-    name: name.trim(),
-    genericName: genericName.trim(),
-    batchNumber: batchNumber.trim(),
-    category: category || 'General',
-    purchasePrice: Number(purchasePrice),
-    sellingPrice: Number(sellingPrice),
-    stockQuantity: Number(stockQuantity),
-    expiryDate: new Date(expiryDate),
-    supplier: supplier || { name: '', contact: '' },
-    createdBy: req.user._id,
-  });
+  // Automatically log purchase history entry
+  try {
+    const subtotal = Number((qty * pPrice).toFixed(2));
+    await Purchase.create({
+      purchaseNumber: generatePurchaseNumber(),
+      invoiceNumber: invoiceNumber || '',
+      purchaseDate: new Date(),
+      supplier: {
+        name: supp.name || 'General Supplier',
+        contact: supp.contact || '',
+      },
+      shopkeeperId: req.user._id,
+      items: [
+        {
+          medicineId: medicine._id,
+          name: medicine.name,
+          genericName: medicine.genericName,
+          batchNumber: medicine.batchNumber,
+          category: medicine.category,
+          purchasePrice: pPrice,
+          sellingPrice: sPrice,
+          quantity: qty,
+          expiryDate: expDate,
+          subtotal,
+        },
+      ],
+      totalAmount: subtotal,
+      totalQuantity: qty,
+      source: 'manual_entry',
+    });
+  } catch (purchErr) {
+    console.error('Error logging purchase history:', purchErr.message);
+  }
 
   res.status(201).json({
-    message: 'Medicine added successfully to inventory',
+    message: medicine.isNew ? 'Medicine added successfully to inventory' : `Stock updated for batch ${batchNumber}`,
     medicine,
   });
 };
@@ -253,6 +297,9 @@ const batchImportMedicines = async (req, res) => {
     let addedCount = 0;
     let updatedCount = 0;
     const processedMedicines = [];
+    const purchaseItems = [];
+    let totalPurchaseAmount = 0;
+    let totalUnitsCount = 0;
 
     for (const item of items) {
       const name = (item.name || '').trim();
@@ -263,9 +310,9 @@ const batchImportMedicines = async (req, res) => {
       const sellingPrice = Number(item.sellingPrice) || Number((purchasePrice * 1.5).toFixed(2));
       const stockQuantity = Number(item.stockQuantity) || 0;
       const expiryDate = item.expiryDate ? new Date(item.expiryDate) : new Date(Date.now() + 365 * 24 * 60 * 60 * 1000);
-      const itemSupplier = supplier || item.supplier || { name: '', contact: '' };
+      const itemSupplier = supplier || item.supplier || { name: 'General Supplier', contact: '' };
 
-      if (!name) continue;
+      if (!name || stockQuantity <= 0) continue;
 
       // Check if medicine with exact name and batch number exists FOR THIS SHOPKEEPER
       let medicine = await Medicine.findOne({
@@ -299,6 +346,46 @@ const batchImportMedicines = async (req, res) => {
         addedCount++;
         processedMedicines.push(medicine);
       }
+
+      const itemSubtotal = Number((stockQuantity * purchasePrice).toFixed(2));
+      totalPurchaseAmount += itemSubtotal;
+      totalUnitsCount += stockQuantity;
+
+      purchaseItems.push({
+        medicineId: medicine._id,
+        name: medicine.name,
+        genericName: medicine.genericName,
+        batchNumber: medicine.batchNumber,
+        category: medicine.category,
+        purchasePrice: purchasePrice,
+        sellingPrice: sellingPrice,
+        quantity: stockQuantity,
+        expiryDate: expiryDate,
+        subtotal: itemSubtotal,
+      });
+    }
+
+    // Save multi-item purchase bill to Purchase collection
+    try {
+      if (purchaseItems.length > 0) {
+        const { invoiceNumber, invoiceDate } = req.body;
+        await Purchase.create({
+          purchaseNumber: generatePurchaseNumber(),
+          invoiceNumber: invoiceNumber || `BILL-${Date.now().toString().slice(-6)}`,
+          purchaseDate: invoiceDate ? new Date(invoiceDate) : new Date(),
+          supplier: {
+            name: supplier?.name?.trim() || 'General Supplier',
+            contact: supplier?.contact?.trim() || '',
+          },
+          shopkeeperId: req.user._id,
+          items: purchaseItems,
+          totalAmount: Number(totalPurchaseAmount.toFixed(2)),
+          totalQuantity: totalUnitsCount,
+          source: 'ocr_scan',
+        });
+      }
+    } catch (purchErr) {
+      console.error('Error recording batch purchase invoice:', purchErr.message);
     }
 
     res.status(200).json({
