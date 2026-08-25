@@ -91,7 +91,7 @@ const POS = () => {
     }
 
     const defaultGst = med.gstRate !== undefined ? Number(med.gstRate) : (med.category?.toLowerCase().includes('cosmetic') ? 18 : 5);
-    const defaultHsn = med.hsnCode || (med.category?.toLowerCase().includes('cosmetic') ? '3304' : '3004');
+    const defaultHsn = med.hsnCode || '';
 
     setCart([
       ...cart,

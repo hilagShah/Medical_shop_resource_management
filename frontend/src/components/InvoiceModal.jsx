@@ -62,7 +62,7 @@ const InvoiceModal = ({ order, onClose }) => {
     return {
       sr: idx + 1,
       name: item.name,
-      hsnCode: item.hsnCode || '3004',
+      hsnCode: item.hsnCode || '',
       batchNumber: item.batchNumber || '',
       expDate: expStr,
       unit: item.unit || 1,

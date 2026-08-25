@@ -79,7 +79,7 @@ const createOrder = async (req, res) => {
       await medicine.save({ session });
 
       const itemGstRate = item.gstRate !== undefined ? Number(item.gstRate) : (medicine.gstRate !== undefined ? Number(medicine.gstRate) : 5);
-      const hsnCode = item.hsnCode || medicine.hsnCode || '3004';
+      const hsnCode = item.hsnCode || medicine.hsnCode || '';
       const itemTaxable = Number((itemSubtotalAfter / (1 + itemGstRate / 100)).toFixed(2));
       const itemSgst = Number((itemTaxable * (itemGstRate / 200)).toFixed(2));
       const itemCgst = Number((itemTaxable * (itemGstRate / 200)).toFixed(2));

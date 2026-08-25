@@ -44,7 +44,7 @@ const orderItemSchema = new mongoose.Schema(
     },
     hsnCode: {
       type: String,
-      default: '3004',
+      default: '',
     },
     gstRate: {
       type: Number,

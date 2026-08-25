@@ -25,7 +25,7 @@ const medicineSchema = new mongoose.Schema(
     },
     hsnCode: {
       type: String,
-      default: '3004',
+      default: '',
       trim: true,
     },
     gstRate: {

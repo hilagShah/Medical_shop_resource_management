@@ -32,7 +32,7 @@ const InventoryManagement = () => {
     genericName: '',
     batchNumber: '',
     category: 'General',
-    hsnCode: '3004',
+    hsnCode: '',
     gstRate: 5,
     purchasePrice: '',
     sellingPrice: '',
@@ -70,7 +70,7 @@ const InventoryManagement = () => {
         genericName: med.genericName,
         batchNumber: med.batchNumber,
         category: med.category,
-        hsnCode: med.hsnCode || (med.category?.toLowerCase().includes('cosmetic') ? '3304' : '3004'),
+        hsnCode: med.hsnCode || '',
         gstRate: med.gstRate !== undefined ? med.gstRate : (med.category?.toLowerCase().includes('cosmetic') ? 18 : 5),
         purchasePrice: med.purchasePrice,
         sellingPrice: med.sellingPrice,
@@ -86,7 +86,7 @@ const InventoryManagement = () => {
         genericName: '',
         batchNumber: '',
         category: 'General',
-        hsnCode: '3004',
+        hsnCode: '',
         gstRate: 5,
         purchasePrice: '',
         sellingPrice: '',
@@ -398,7 +398,6 @@ const InventoryManagement = () => {
                         ...formData,
                         category: cat,
                         gstRate: isCosmetic ? 18 : (formData.gstRate === 18 ? 5 : formData.gstRate),
-                        hsnCode: isCosmetic ? '3304' : (formData.hsnCode === '3304' ? '3004' : formData.hsnCode),
                       });
                     }}
                     className="w-full rounded-xl border border-slate-800 bg-slate-950 py-2 px-3 text-xs text-white focus:border-cyan-500 focus:outline-none"
@@ -432,7 +431,7 @@ const InventoryManagement = () => {
                     type="text"
                     value={formData.hsnCode}
                     onChange={(e) => setFormData({ ...formData, hsnCode: e.target.value })}
-                    placeholder="e.g. 3004"
+                    placeholder="e.g. HSN Code"
                     className="w-full rounded-xl border border-slate-800 bg-slate-950 py-2 px-3 text-xs text-white focus:border-cyan-500 focus:outline-none font-mono"
                   />
                 </div>

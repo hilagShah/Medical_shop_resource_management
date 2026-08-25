@@ -49,7 +49,7 @@ const addMedicine = async (req, res) => {
   const supp = supplier || { name: 'General Supplier', contact: '' };
   const itemCategory = category || 'General';
   const itemGstRate = gstRate !== undefined ? Number(gstRate) : (itemCategory.toLowerCase().includes('cosmetic') ? 18 : 5);
-  const itemHsnCode = hsnCode ? hsnCode.trim() : (itemCategory.toLowerCase().includes('cosmetic') ? '3304' : '3004');
+  const itemHsnCode = hsnCode ? hsnCode.trim() : '';
 
   const safeNameRegex = new RegExp(`^${name.trim().replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}$`, 'i');
 
@@ -348,7 +348,7 @@ const batchImportMedicines = async (req, res) => {
       });
 
       const itemGstRate = item.gstRate !== undefined ? Number(item.gstRate) : (category.toLowerCase().includes('cosmetic') ? 18 : 5);
-      const itemHsnCode = item.hsnCode ? item.hsnCode.trim() : (category.toLowerCase().includes('cosmetic') ? '3304' : '3004');
+      const itemHsnCode = item.hsnCode ? item.hsnCode.trim() : '';
 
       if (medicine) {
         medicine.stockQuantity += stockQuantity;
