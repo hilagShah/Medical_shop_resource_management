@@ -2,6 +2,7 @@ const mongoose = require('mongoose');
 const Order = require('../models/Order');
 const Medicine = require('../models/Medicine');
 const User = require('../models/User');
+const { escapeRegex } = require('../utils/sanitize');
 
 // Helper to generate unique order number (e.g. INV-20260815-9X2A)
 const generateOrderNumber = () => {
@@ -229,11 +230,12 @@ const getOrders = async (req, res) => {
     }
   }
 
-  if (search) {
+  if (search && search.trim()) {
+    const cleanSearch = escapeRegex(search);
     query.$or = [
-      { orderNumber: { $regex: search, $options: 'i' } },
-      { 'customerDetails.name': { $regex: search, $options: 'i' } },
-      { 'customerDetails.phone': { $regex: search, $options: 'i' } },
+      { orderNumber: { $regex: cleanSearch, $options: 'i' } },
+      { 'customerDetails.name': { $regex: cleanSearch, $options: 'i' } },
+      { 'customerDetails.phone': { $regex: cleanSearch, $options: 'i' } },
     ];
   }
 
@@ -248,11 +250,24 @@ const getOrders = async (req, res) => {
 // @route   GET /api/orders/:id
 // @access  Private
 const getOrderById = async (req, res) => {
-  const order = await Order.findById(req.params.id).populate('shopkeeperId', 'name shopName email phone');
-  if (order) {
+  try {
+    const order = await Order.findById(req.params.id).populate('shopkeeperId', 'name shopName email phone');
+    if (!order) {
+      return res.status(404).json({ message: 'Order not found' });
+    }
+
+    // Broken Object Level Authorization (BOLA/IDOR) Check
+    if (req.user.role === 'shopkeeper') {
+      const orderShopkeeperId = (order.shopkeeperId?._id || order.shopkeeperId)?.toString();
+      if (orderShopkeeperId !== req.user._id.toString()) {
+        return res.status(403).json({ message: 'Not authorized to view this order record' });
+      }
+    }
+
     res.json(order);
-  } else {
-    res.status(404).json({ message: 'Order not found' });
+  } catch (error) {
+    console.error('Error fetching order by id:', error);
+    res.status(500).json({ message: error.message || 'Failed to retrieve order' });
   }
 };
 

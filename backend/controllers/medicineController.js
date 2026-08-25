@@ -1,6 +1,7 @@
 const Medicine = require('../models/Medicine');
 const Purchase = require('../models/Purchase');
 const { parsePurchaseBillImage } = require('../services/ocrService');
+const { escapeRegex } = require('../utils/sanitize');
 
 // Helper to generate unique purchase number
 const generatePurchaseNumber = () => {
@@ -159,15 +160,17 @@ const getMedicines = async (req, res) => {
   }
 
   if (category && category !== 'All') {
-    query.category = { $regex: category, $options: 'i' };
+    const cleanCat = escapeRegex(category);
+    query.category = { $regex: cleanCat, $options: 'i' };
   }
 
-  if (search) {
+  if (search && search.trim()) {
+    const cleanSearch = escapeRegex(search);
     query.$or = [
-      { name: { $regex: search, $options: 'i' } },
-      { genericName: { $regex: search, $options: 'i' } },
-      { batchNumber: { $regex: search, $options: 'i' } },
-      { 'supplier.name': { $regex: search, $options: 'i' } },
+      { name: { $regex: cleanSearch, $options: 'i' } },
+      { genericName: { $regex: cleanSearch, $options: 'i' } },
+      { batchNumber: { $regex: cleanSearch, $options: 'i' } },
+      { 'supplier.name': { $regex: cleanSearch, $options: 'i' } },
     ];
   }
 

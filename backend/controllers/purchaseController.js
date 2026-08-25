@@ -1,5 +1,6 @@
 const mongoose = require('mongoose');
 const Purchase = require('../models/Purchase');
+const { escapeRegex } = require('../utils/sanitize');
 
 // Helper to generate unique purchase number (e.g. PUR-20260824-9X2A)
 const generatePurchaseNumber = () => {
@@ -25,7 +26,8 @@ const getPurchases = async (req, res) => {
     }
 
     if (supplierName && supplierName !== 'All') {
-      query['supplier.name'] = { $regex: new RegExp(`^${supplierName.trim()}$`, 'i') };
+      const cleanSupp = escapeRegex(supplierName);
+      query['supplier.name'] = { $regex: new RegExp(`^${cleanSupp}$`, 'i') };
     }
 
     if (startDate || endDate) {
@@ -38,14 +40,15 @@ const getPurchases = async (req, res) => {
       }
     }
 
-    if (search) {
+    if (search && search.trim()) {
+      const cleanSearch = escapeRegex(search);
       query.$or = [
-        { purchaseNumber: { $regex: search, $options: 'i' } },
-        { invoiceNumber: { $regex: search, $options: 'i' } },
-        { 'supplier.name': { $regex: search, $options: 'i' } },
-        { 'supplier.contact': { $regex: search, $options: 'i' } },
-        { 'items.name': { $regex: search, $options: 'i' } },
-        { 'items.batchNumber': { $regex: search, $options: 'i' } },
+        { purchaseNumber: { $regex: cleanSearch, $options: 'i' } },
+        { invoiceNumber: { $regex: cleanSearch, $options: 'i' } },
+        { 'supplier.name': { $regex: cleanSearch, $options: 'i' } },
+        { 'supplier.contact': { $regex: cleanSearch, $options: 'i' } },
+        { 'items.name': { $regex: cleanSearch, $options: 'i' } },
+        { 'items.batchNumber': { $regex: cleanSearch, $options: 'i' } },
       ];
     }
 
@@ -112,11 +115,11 @@ const getPurchaseById = async (req, res) => {
     }
 
     // Verify ownership if user is shopkeeper
-    if (
-      req.user.role === 'shopkeeper' &&
-      purchase.shopkeeperId._id.toString() !== req.user._id.toString()
-    ) {
-      return res.status(403).json({ message: 'Not authorized to view this purchase record' });
+    if (req.user.role === 'shopkeeper') {
+      const ownerId = (purchase.shopkeeperId?._id || purchase.shopkeeperId)?.toString();
+      if (ownerId !== req.user._id.toString()) {
+        return res.status(403).json({ message: 'Not authorized to view this purchase record' });
+      }
     }
 
     res.json(purchase);

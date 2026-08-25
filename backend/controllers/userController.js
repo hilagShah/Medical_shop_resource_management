@@ -1,5 +1,6 @@
 const User = require('../models/User');
 const Order = require('../models/Order');
+const { escapeRegex } = require('../utils/sanitize');
 
 // @desc    Create a new Shopkeeper
 // @route   POST /api/users/shopkeeper
@@ -79,12 +80,13 @@ const getShopkeepers = async (req, res) => {
     query.isActive = false;
   }
 
-  if (search) {
+  if (search && search.trim()) {
+    const cleanSearch = escapeRegex(search);
     query.$or = [
-      { name: { $regex: search, $options: 'i' } },
-      { email: { $regex: search, $options: 'i' } },
-      { shopName: { $regex: search, $options: 'i' } },
-      { phone: { $regex: search, $options: 'i' } },
+      { name: { $regex: cleanSearch, $options: 'i' } },
+      { email: { $regex: cleanSearch, $options: 'i' } },
+      { shopName: { $regex: cleanSearch, $options: 'i' } },
+      { phone: { $regex: cleanSearch, $options: 'i' } },
     ];
   }
 
