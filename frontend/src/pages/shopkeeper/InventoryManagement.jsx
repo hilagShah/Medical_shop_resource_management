@@ -250,10 +250,11 @@ const InventoryManagement = () => {
 
                   const isExpired = expDate <= now;
                   const isExpiringSoon = expDate > now && expDate <= sixtyDays;
-                  const isLowStock = m.stockQuantity <= 10;
+                  const isOutOfStock = m.stockQuantity <= 0;
+                  const isLowStock = m.stockQuantity > 0 && m.stockQuantity <= 10;
 
                   return (
-                    <tr key={m._id} className="hover:bg-slate-800/40 transition-colors">
+                    <tr key={m._id} className={`transition-colors ${isOutOfStock ? 'bg-rose-500/5 hover:bg-rose-500/10' : 'hover:bg-slate-800/40'}`}>
                       <td className="p-4">
                         <p className="font-semibold text-white">{m.name}</p>
                         <p className="text-[10px] text-slate-400">{m.genericName}</p>
@@ -268,11 +269,13 @@ const InventoryManagement = () => {
                       <td className="p-4 font-mono font-semibold text-emerald-400">₹{m.sellingPrice.toFixed(2)}</td>
                       <td className="p-4">
                         <span className={`inline-flex items-center gap-1 rounded-lg px-2.5 py-1 text-xs font-bold ${
-                          isLowStock
+                          isOutOfStock
+                            ? 'bg-rose-500/10 text-rose-400 border border-rose-500/20'
+                            : isLowStock
                             ? 'bg-amber-500/10 text-amber-400 border border-amber-500/20'
                             : 'bg-emerald-500/10 text-emerald-400 border border-emerald-500/20'
                         }`}>
-                          {m.stockQuantity} units
+                          {isOutOfStock ? '0 units (Out of Stock)' : `${m.stockQuantity} units`}
                         </span>
                       </td>
                       <td className="p-4">

@@ -50,15 +50,17 @@ const addMedicine = async (req, res) => {
   const itemGstRate = gstRate !== undefined ? Number(gstRate) : (itemCategory.toLowerCase().includes('cosmetic') ? 18 : 5);
   const itemHsnCode = hsnCode ? hsnCode.trim() : (itemCategory.toLowerCase().includes('cosmetic') ? '3304' : '3004');
 
-  // Check if same medicine with exact batch number exists FOR THIS SHOPKEEPER
+  const safeNameRegex = new RegExp(`^${name.trim().replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}$`, 'i');
+
+  // Check if medicine with exact batch number AND same name exists FOR THIS SHOPKEEPER
   let medicine = await Medicine.findOne({
     batchNumber: batchNumber.trim(),
-    name: { $regex: new RegExp(`^${name.trim()}$`, 'i') },
+    name: { $regex: safeNameRegex },
     createdBy: req.user._id,
   });
 
   if (medicine) {
-    // Auto-increment stock
+    // If exact batch exists, update its stock and details
     medicine.stockQuantity += qty;
     medicine.purchasePrice = pPrice;
     medicine.sellingPrice = sPrice;
@@ -67,8 +69,23 @@ const addMedicine = async (req, res) => {
     medicine.hsnCode = itemHsnCode;
     if (supplier) medicine.supplier = supp;
     await medicine.save();
+
+    // Delete any remaining 0-stock records of this medicine name (to clean up old depleted batch reminders)
+    await Medicine.deleteMany({
+      _id: { $ne: medicine._id },
+      name: { $regex: safeNameRegex },
+      stockQuantity: { $lte: 0 },
+      createdBy: req.user._id,
+    });
   } else {
-    // Create new medicine record assigned to the logged-in shopkeeper
+    // When new stock of the SAME medicine name enters, delete the specific medicine detail record that was at 0 stock
+    await Medicine.deleteMany({
+      name: { $regex: safeNameRegex },
+      stockQuantity: { $lte: 0 },
+      createdBy: req.user._id,
+    });
+
+    // Create new medicine record with the incoming stock details
     medicine = await Medicine.create({
       name: name.trim(),
       genericName: genericName.trim(),
@@ -154,9 +171,12 @@ const getMedicines = async (req, res) => {
     ];
   }
 
+  // Stock status filtering: low, out, in_stock, or all (default includes out of stock)
   if (stockStatus === 'low') {
     query.stockQuantity = { $lte: 10, $gt: 0 };
-  } else {
+  } else if (stockStatus === 'out') {
+    query.stockQuantity = { $lte: 0 };
+  } else if (stockStatus === 'in_stock') {
     query.stockQuantity = { $gt: 0 };
   }
 
@@ -231,19 +251,9 @@ const updateMedicine = async (req, res) => {
   if (hsnCode !== undefined) medicine.hsnCode = hsnCode.trim();
   if (purchasePrice !== undefined) medicine.purchasePrice = Number(purchasePrice);
   if (sellingPrice !== undefined) medicine.sellingPrice = Number(sellingPrice);
-  if (stockQuantity !== undefined) medicine.stockQuantity = Number(stockQuantity);
+  if (stockQuantity !== undefined) medicine.stockQuantity = Math.max(0, Number(stockQuantity));
   if (expiryDate) medicine.expiryDate = new Date(expiryDate);
   if (supplier) medicine.supplier = supplier;
-
-  // If stock reaches 0 or below, remove completely from database
-  if (medicine.stockQuantity <= 0) {
-    await medicine.deleteOne();
-    return res.json({
-      message: `Stock for '${medicine.name}' reached 0 and was removed completely from inventory`,
-      deleted: true,
-      _id: medicine._id,
-    });
-  }
 
   const updatedMedicine = await medicine.save();
   res.json(updatedMedicine);
@@ -346,9 +356,25 @@ const batchImportMedicines = async (req, res) => {
         medicine.hsnCode = itemHsnCode;
         if (itemSupplier.name) medicine.supplier = itemSupplier;
         await medicine.save();
+
+        // Delete any remaining 0-stock records of this medicine name
+        await Medicine.deleteMany({
+          _id: { $ne: medicine._id },
+          name: { $regex: new RegExp(`^${name.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}$`, 'i') },
+          stockQuantity: { $lte: 0 },
+          createdBy: req.user._id,
+        });
+
         updatedCount++;
         processedMedicines.push(medicine);
       } else {
+        // Delete any existing 0-stock record(s) for this medicine name when new stock enters
+        await Medicine.deleteMany({
+          name: { $regex: new RegExp(`^${name.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}$`, 'i') },
+          stockQuantity: { $lte: 0 },
+          createdBy: req.user._id,
+        });
+
         medicine = await Medicine.create({
           name: name,
           genericName: genericName,

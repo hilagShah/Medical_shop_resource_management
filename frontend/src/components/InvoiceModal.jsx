@@ -375,68 +375,68 @@ const InvoiceModal = ({ order, onClose }) => {
             </tbody>
           </table>
 
-          {/* 2. LINE ITEMS TABLE */}
-          <table style={{ width: '100%', borderCollapse: 'collapse', border: '1.5px solid #000', fontSize: '8.5px', textAlign: 'center', marginBottom: '2px' }}>
+          {/* 2. LINE ITEMS TABLE (WITH COMPACT DESCRIPTION & EXPANDED NUMERICAL COLUMNS) */}
+          <table className="items-table" style={{ width: '100%', tableLayout: 'fixed', borderCollapse: 'collapse', border: '1.5px solid #000', fontSize: '8.5px', textAlign: 'center', marginBottom: '2px' }}>
             <thead>
               <tr style={{ background: '#f4f4f4', fontWeight: 'bold', borderBottom: '1px solid #000' }}>
-                <th style={{ border: '1px solid #000', padding: '2px', width: '25px' }} rowSpan="2">Sr.</th>
-                <th style={{ border: '1px solid #000', padding: '2px 4px', textAlign: 'left' }} rowSpan="2">Description</th>
-                <th style={{ border: '1px solid #000', padding: '2px', width: '45px' }} rowSpan="2">HSNCd</th>
-                <th style={{ border: '1px solid #000', padding: '2px', width: '60px' }} rowSpan="2">BatchNo</th>
-                <th style={{ border: '1px solid #000', padding: '2px', width: '40px' }} rowSpan="2">ExpDt</th>
-                <th style={{ border: '1px solid #000', padding: '2px', width: '28px' }} rowSpan="2">Unit</th>
-                <th style={{ border: '1px solid #000', padding: '2px 4px', width: '45px', textAlign: 'right' }} rowSpan="2">M.R.P.</th>
-                <th style={{ border: '1px solid #000', padding: '2px', width: '28px' }} rowSpan="2">Qty</th>
-                <th style={{ border: '1px solid #000', padding: '2px 4px', width: '50px', textAlign: 'right' }} rowSpan="2">Sale Rate<br/>/ Unit</th>
-                <th style={{ border: '1px solid #000', padding: '2px 4px', width: '35px', textAlign: 'right' }} rowSpan="2">Disc%</th>
-                <th style={{ border: '1px solid #000', padding: '2px 4px', width: '50px', textAlign: 'right' }} rowSpan="2">Taxable<br/>Value</th>
-                <th style={{ border: '1px solid #000', padding: '1px 2px', textAlign: 'center' }} colSpan="2">SGST</th>
-                <th style={{ border: '1px solid #000', padding: '1px 2px', textAlign: 'center' }} colSpan="2">CGST</th>
-                <th style={{ border: '1px solid #000', padding: '2px 4px', width: '55px', textAlign: 'right' }} rowSpan="2">Amount</th>
+                <th style={{ border: '1px solid #000', padding: '2px 1px', width: '3.5%' }} rowSpan="2">Sr.</th>
+                <th style={{ border: '1px solid #000', padding: '2px 4px', textAlign: 'left', width: '21%' }} rowSpan="2">Description</th>
+                <th style={{ border: '1px solid #000', padding: '2px 1px', width: '6%' }} rowSpan="2">HSNCd</th>
+                <th style={{ border: '1px solid #000', padding: '2px 1px', width: '7.5%' }} rowSpan="2">BatchNo</th>
+                <th style={{ border: '1px solid #000', padding: '2px 1px', width: '5.5%' }} rowSpan="2">ExpDt</th>
+                <th style={{ border: '1px solid #000', padding: '2px 1px', width: '4%' }} rowSpan="2">Unit</th>
+                <th style={{ border: '1px solid #000', padding: '2px 3px', width: '6.5%', textAlign: 'right' }} rowSpan="2">M.R.P.</th>
+                <th style={{ border: '1px solid #000', padding: '2px 1px', width: '4%' }} rowSpan="2">Qty</th>
+                <th style={{ border: '1px solid #000', padding: '2px 3px', width: '7.5%', textAlign: 'right' }} rowSpan="2">Sale Rate<br/>/ Unit</th>
+                <th style={{ border: '1px solid #000', padding: '2px 2px', width: '5%', textAlign: 'right' }} rowSpan="2">Disc%</th>
+                <th style={{ border: '1px solid #000', padding: '2px 3px', width: '7.5%', textAlign: 'right' }} rowSpan="2">Taxable<br/>Value</th>
+                <th style={{ border: '1px solid #000', padding: '1px 2px', textAlign: 'center', width: '10%' }} colSpan="2">SGST</th>
+                <th style={{ border: '1px solid #000', padding: '1px 2px', textAlign: 'center', width: '10%' }} colSpan="2">CGST</th>
+                <th style={{ border: '1px solid #000', padding: '2px 3px', width: '7%', textAlign: 'right' }} rowSpan="2">Amount</th>
               </tr>
               <tr style={{ background: '#f4f4f4', fontWeight: 'bold', borderBottom: '1.5px solid #000', fontSize: '7.5px' }}>
-                <th style={{ border: '1px solid #000', padding: '1px 2px', width: '28px', textAlign: 'right' }}>Rate</th>
-                <th style={{ border: '1px solid #000', padding: '1px 2px', width: '35px', textAlign: 'right' }}>Value</th>
-                <th style={{ border: '1px solid #000', padding: '1px 2px', width: '28px', textAlign: 'right' }}>Rate</th>
-                <th style={{ border: '1px solid #000', padding: '1px 2px', width: '35px', textAlign: 'right' }}>Value</th>
+                <th style={{ border: '1px solid #000', padding: '1px 2px', width: '4.5%', textAlign: 'right' }}>Rate</th>
+                <th style={{ border: '1px solid #000', padding: '1px 2px', width: '5.5%', textAlign: 'right' }}>Value</th>
+                <th style={{ border: '1px solid #000', padding: '1px 2px', width: '4.5%', textAlign: 'right' }}>Rate</th>
+                <th style={{ border: '1px solid #000', padding: '1px 2px', width: '5.5%', textAlign: 'right' }}>Value</th>
               </tr>
             </thead>
             <tbody>
               {calculatedItems.map((item, idx) => (
                 <tr key={idx} style={{ borderBottom: '1px solid #ccc' }}>
-                  <td style={{ border: '1px solid #000', padding: '2px' }}>{item.sr}</td>
-                  <td style={{ border: '1px solid #000', padding: '2px 4px', textAlign: 'left', fontWeight: 'bold', textTransform: 'uppercase' }}>
+                  <td style={{ border: '1px solid #000', padding: '2px 1px' }}>{item.sr}</td>
+                  <td style={{ border: '1px solid #000', padding: '2px 4px', textAlign: 'left', fontWeight: 'bold', textTransform: 'uppercase', wordBreak: 'break-word', overflow: 'hidden' }}>
                     {item.name}
                   </td>
-                  <td style={{ border: '1px solid #000', padding: '2px', fontFamily: 'monospace' }}>{item.hsnCode}</td>
-                  <td style={{ border: '1px solid #000', padding: '2px', fontFamily: 'monospace', fontWeight: '500' }}>{item.batchNumber}</td>
-                  <td style={{ border: '1px solid #000', padding: '2px', fontFamily: 'monospace' }}>{item.expDate}</td>
-                  <td style={{ border: '1px solid #000', padding: '2px' }}>{item.unit}</td>
-                  <td style={{ border: '1px solid #000', padding: '2px 4px', textAlign: 'right', fontFamily: 'monospace' }}>{item.mrp}</td>
-                  <td style={{ border: '1px solid #000', padding: '2px', fontWeight: 'bold' }}>{item.qty}</td>
-                  <td style={{ border: '1px solid #000', padding: '2px 4px', textAlign: 'right', fontFamily: 'monospace' }}>{item.saleRate}</td>
-                  <td style={{ border: '1px solid #000', padding: '2px 4px', textAlign: 'right', fontFamily: 'monospace' }}>{item.discPercent}</td>
-                  <td style={{ border: '1px solid #000', padding: '2px 4px', textAlign: 'right', fontFamily: 'monospace', fontWeight: '500' }}>{item.taxableValue}</td>
-                  <td style={{ border: '1px solid #000', padding: '2px 4px', textAlign: 'right', fontFamily: 'monospace' }}>{item.sgstRate}</td>
-                  <td style={{ border: '1px solid #000', padding: '2px 4px', textAlign: 'right', fontFamily: 'monospace' }}>{item.sgstValue}</td>
-                  <td style={{ border: '1px solid #000', padding: '2px 4px', textAlign: 'right', fontFamily: 'monospace' }}>{item.cgstRate}</td>
-                  <td style={{ border: '1px solid #000', padding: '2px 4px', textAlign: 'right', fontFamily: 'monospace' }}>{item.cgstValue}</td>
-                  <td style={{ border: '1px solid #000', padding: '2px 4px', textAlign: 'right', fontFamily: 'monospace', fontWeight: 'bold' }}>{item.amount}</td>
+                  <td style={{ border: '1px solid #000', padding: '2px 1px', fontFamily: 'monospace' }}>{item.hsnCode}</td>
+                  <td style={{ border: '1px solid #000', padding: '2px 1px', fontFamily: 'monospace', fontWeight: '500' }}>{item.batchNumber}</td>
+                  <td style={{ border: '1px solid #000', padding: '2px 1px', fontFamily: 'monospace' }}>{item.expDate}</td>
+                  <td style={{ border: '1px solid #000', padding: '2px 1px' }}>{item.unit}</td>
+                  <td style={{ border: '1px solid #000', padding: '2px 3px', textAlign: 'right', fontFamily: 'monospace' }}>{item.mrp}</td>
+                  <td style={{ border: '1px solid #000', padding: '2px 1px', fontWeight: 'bold' }}>{item.qty}</td>
+                  <td style={{ border: '1px solid #000', padding: '2px 3px', textAlign: 'right', fontFamily: 'monospace' }}>{item.saleRate}</td>
+                  <td style={{ border: '1px solid #000', padding: '2px 2px', textAlign: 'right', fontFamily: 'monospace' }}>{item.discPercent}</td>
+                  <td style={{ border: '1px solid #000', padding: '2px 3px', textAlign: 'right', fontFamily: 'monospace', fontWeight: '500' }}>{item.taxableValue}</td>
+                  <td style={{ border: '1px solid #000', padding: '2px 2px', textAlign: 'right', fontFamily: 'monospace' }}>{item.sgstRate}</td>
+                  <td style={{ border: '1px solid #000', padding: '2px 2px', textAlign: 'right', fontFamily: 'monospace' }}>{item.sgstValue}</td>
+                  <td style={{ border: '1px solid #000', padding: '2px 2px', textAlign: 'right', fontFamily: 'monospace' }}>{item.cgstRate}</td>
+                  <td style={{ border: '1px solid #000', padding: '2px 2px', textAlign: 'right', fontFamily: 'monospace' }}>{item.cgstValue}</td>
+                  <td style={{ border: '1px solid #000', padding: '2px 3px', textAlign: 'right', fontFamily: 'monospace', fontWeight: 'bold' }}>{item.amount}</td>
                 </tr>
               ))}
 
               {/* SUMMARY TOTALS ROW */}
               <tr style={{ borderTop: '1.5px solid #000', borderBottom: '1.5px solid #000', fontWeight: 'bold', background: '#fafafa', fontSize: '8.5px' }}>
                 <td style={{ border: '1px solid #000', padding: '2px' }} colSpan="7"></td>
-                <td style={{ border: '1px solid #000', padding: '2px', textAlign: 'center', fontFamily: 'monospace', fontWeight: 'bold' }}>{totalUnits}</td>
+                <td style={{ border: '1px solid #000', padding: '2px 1px', textAlign: 'center', fontFamily: 'monospace', fontWeight: 'bold' }}>{totalUnits}</td>
                 <td style={{ border: '1px solid #000', padding: '2px' }}></td>
-                <td style={{ border: '1px solid #000', padding: '2px', textAlign: 'right', fontFamily: 'monospace' }}>0.00</td>
-                <td style={{ border: '1px solid #000', padding: '2px 4px', textAlign: 'right', fontFamily: 'monospace', fontWeight: 'bold' }}>{totalTaxableVal.toFixed(2)}</td>
+                <td style={{ border: '1px solid #000', padding: '2px 2px', textAlign: 'right', fontFamily: 'monospace' }}>0.00</td>
+                <td style={{ border: '1px solid #000', padding: '2px 3px', textAlign: 'right', fontFamily: 'monospace', fontWeight: 'bold' }}>{totalTaxableVal.toFixed(2)}</td>
                 <td style={{ border: '1px solid #000', padding: '2px' }}></td>
-                <td style={{ border: '1px solid #000', padding: '2px 4px', textAlign: 'right', fontFamily: 'monospace', fontWeight: 'bold' }}>{totalSgstVal.toFixed(2)}</td>
+                <td style={{ border: '1px solid #000', padding: '2px 2px', textAlign: 'right', fontFamily: 'monospace', fontWeight: 'bold' }}>{totalSgstVal.toFixed(2)}</td>
                 <td style={{ border: '1px solid #000', padding: '2px' }}></td>
-                <td style={{ border: '1px solid #000', padding: '2px 4px', textAlign: 'right', fontFamily: 'monospace', fontWeight: 'bold' }}>{totalCgstVal.toFixed(2)}</td>
-                <td style={{ border: '1px solid #000', padding: '2px 4px', textAlign: 'right', fontFamily: 'monospace', fontWeight: 'bold' }}>{grossTotalVal.toFixed(2)}</td>
+                <td style={{ border: '1px solid #000', padding: '2px 2px', textAlign: 'right', fontFamily: 'monospace', fontWeight: 'bold' }}>{totalCgstVal.toFixed(2)}</td>
+                <td style={{ border: '1px solid #000', padding: '2px 3px', textAlign: 'right', fontFamily: 'monospace', fontWeight: 'bold' }}>{grossTotalVal.toFixed(2)}</td>
               </tr>
             </tbody>
           </table>

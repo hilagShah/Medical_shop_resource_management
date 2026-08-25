@@ -73,13 +73,9 @@ const createOrder = async (req, res) => {
       grossTotalBeforeDiscount += itemSubtotalBefore;
       totalItemDiscount += itemDiscountAmount;
 
-      // Decrement stock or remove completely if stock reaches 0
-      medicine.stockQuantity -= qty;
-      if (medicine.stockQuantity <= 0) {
-        await medicine.deleteOne({ session });
-      } else {
-        await medicine.save({ session });
-      }
+      // Decrement stock (retains record with 0 stock until restocked)
+      medicine.stockQuantity = Math.max(0, medicine.stockQuantity - qty);
+      await medicine.save({ session });
 
       const itemGstRate = item.gstRate !== undefined ? Number(item.gstRate) : (medicine.gstRate !== undefined ? Number(medicine.gstRate) : 5);
       const hsnCode = item.hsnCode || medicine.hsnCode || '3004';
