@@ -3,10 +3,8 @@ import { Printer, X, CheckCircle, Edit3 } from 'lucide-react';
 import { numberToWords } from '../utils/numberToWords';
 
 const InvoiceModal = ({ order, onClose }) => {
-  if (!order) return null;
-
   const [pharmacyDetails, setPharmacyDetails] = useState({
-    name: order.shopkeeperId?.shopName || 'KEYUR MEDICAL & PROVISION STORE',
+    name: order?.shopkeeperId?.shopName || 'KEYUR MEDICAL & PROVISION STORE',
     address: '16, Tapovan Society, Anil mill road, Saraspur, Ahmedabad',
     regNo: 'Registration No.PI/SRS/00/0007549',
     gstin: '24ACTPP7760K1ZT',
@@ -18,6 +16,8 @@ const InvoiceModal = ({ order, onClose }) => {
 
   const [showEditHeader, setShowEditHeader] = useState(false);
 
+  if (!order) return null;
+
   // Tax and GST Calculations (5% default standard GST in Indian Pharmacy)
   const taxRate = order.taxRate !== undefined && order.taxRate !== null && Number(order.taxRate) > 0 ? Number(order.taxRate) : 5.0;
   const sgstRateNum = taxRate / 2;
@@ -26,19 +26,13 @@ const InvoiceModal = ({ order, onClose }) => {
   const cgstRateStr = cgstRateNum.toFixed(2);
 
   // Date formatted as DD/MM/YYYY
-  const orderDate = new Date(order.createdAt || Date.now());
+  const orderDate = new Date(order.createdAt || '2026-01-01');
   const day = String(orderDate.getDate()).padStart(2, '0');
   const month = String(orderDate.getMonth() + 1).padStart(2, '0');
   const year = orderDate.getFullYear();
   const formattedDate = `${day}/${month}/${year}`;
 
   // Item Calculations
-  let totalUnits = 0;
-  let totalTaxableVal = 0;
-  let totalSgstVal = 0;
-  let totalCgstVal = 0;
-  let grossTotalVal = 0;
-
   const calculatedItems = (order.items || []).map((item, idx) => {
     const itemQty = item.quantity || 1;
     const unitPrice = item.unitPrice || 0; // MRP
@@ -57,12 +51,6 @@ const InvoiceModal = ({ order, onClose }) => {
     const itemTaxable = lineNet / (1 + itemGstRate / 100);
     const itemSgst = itemTaxable * (itemGstRate / 200);
     const itemCgst = itemTaxable * (itemGstRate / 200);
-
-    totalUnits += itemQty;
-    totalTaxableVal += itemTaxable;
-    totalSgstVal += itemSgst;
-    totalCgstVal += itemCgst;
-    grossTotalVal += lineNet;
 
     const expStr = item.expiryDate
       ? new Date(item.expiryDate).toLocaleDateString('en-GB', {
@@ -89,8 +77,20 @@ const InvoiceModal = ({ order, onClose }) => {
       cgstRate: itemCgstRate,
       cgstValue: itemCgst.toFixed(2),
       amount: lineNet.toFixed(2),
+      subtotal: lineNet,
+      rawQty: itemQty,
+      rawTaxable: itemTaxable,
+      rawSgst: itemSgst,
+      rawCgst: itemCgst,
+      rawGross: lineNet,
     };
   });
+
+  const totalUnits = calculatedItems.reduce((sum, it) => sum + it.rawQty, 0);
+  const totalTaxableVal = calculatedItems.reduce((sum, it) => sum + it.rawTaxable, 0);
+  const totalSgstVal = calculatedItems.reduce((sum, it) => sum + it.rawSgst, 0);
+  const totalCgstVal = calculatedItems.reduce((sum, it) => sum + it.rawCgst, 0);
+  const grossTotalVal = calculatedItems.reduce((sum, it) => sum + it.rawGross, 0);
 
   // Multi-Slab GST Aggregation
   const slabMap = {};

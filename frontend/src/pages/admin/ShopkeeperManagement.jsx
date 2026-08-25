@@ -45,7 +45,7 @@ const ShopkeeperManagement = () => {
   const [retentionLoading, setRetentionLoading] = useState(false);
   const [purgeLoading, setPurgeLoading] = useState(false);
 
-  const [formData, setFormData] = useState({
+  const [formData, setFormData] = useState(() => ({
     name: '',
     email: '',
     password: '',
@@ -57,7 +57,7 @@ const ShopkeeperManagement = () => {
     subscriptionPlan: 'monthly',
     subscriptionExpiresAt: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString().slice(0, 10),
     monthlyFee: 0,
-  });
+  }));
 
   const fetchShopkeepers = async () => {
     setLoading(true);

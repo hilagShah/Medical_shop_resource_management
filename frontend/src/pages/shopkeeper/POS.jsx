@@ -171,23 +171,17 @@ const POS = () => {
   const totalItemDiscount = cart.reduce((sum, item) => {
     const qty = Number(item.quantity) || 0;
     const itemSub = qty * item.unitPrice;
-    let disc = 0;
-    if (item.itemDiscount.type === 'percent') {
-      disc = (itemSub * Math.min(100, item.itemDiscount.value)) / 100;
-    } else {
-      disc = Math.min(itemSub, item.itemDiscount.value);
-    }
+    const disc = item.itemDiscount.type === 'percent'
+      ? (itemSub * Math.min(100, item.itemDiscount.value)) / 100
+      : Math.min(itemSub, item.itemDiscount.value);
     return sum + disc;
   }, 0);
 
   const subtotalAfterItemDiscounts = grossTotalBeforeDiscount - totalItemDiscount;
 
-  let orderDiscountAmount = 0;
-  if (orderDiscount.type === 'percent') {
-    orderDiscountAmount = (subtotalAfterItemDiscounts * Math.min(100, Math.max(0, orderDiscount.value))) / 100;
-  } else {
-    orderDiscountAmount = Math.min(subtotalAfterItemDiscounts, Math.max(0, orderDiscount.value));
-  }
+  const orderDiscountAmount = orderDiscount.type === 'percent'
+    ? (subtotalAfterItemDiscounts * Math.min(100, Math.max(0, orderDiscount.value))) / 100
+    : Math.min(subtotalAfterItemDiscounts, Math.max(0, orderDiscount.value));
 
   const totalCumulativeDiscount = totalItemDiscount + orderDiscountAmount;
   const netAfterAllDiscounts = Math.max(0, grossTotalBeforeDiscount - totalCumulativeDiscount);
@@ -198,12 +192,9 @@ const POS = () => {
     const qty = Number(item.quantity) || 0;
     if (qty <= 0) return;
     const itemGross = qty * item.unitPrice;
-    let disc = 0;
-    if (item.itemDiscount.type === 'percent') {
-      disc = (itemGross * Math.min(100, item.itemDiscount.value)) / 100;
-    } else {
-      disc = Math.min(itemGross, item.itemDiscount.value);
-    }
+    const disc = item.itemDiscount.type === 'percent'
+      ? (itemGross * Math.min(100, item.itemDiscount.value)) / 100
+      : Math.min(itemGross, item.itemDiscount.value);
     const itemNet = Math.max(0, itemGross - disc);
     const rate = Number(item.gstRate !== undefined ? item.gstRate : 5);
     const taxable = itemNet / (1 + rate / 100);
@@ -416,12 +407,9 @@ const POS = () => {
                       const itemSubtotal = (Number(item.quantity) || 0) * item.unitPrice;
                       const itemCost = (Number(item.quantity) || 0) * (item.purchasePrice || 0);
 
-                      let discAmt = 0;
-                      if (item.itemDiscount.type === 'percent') {
-                        discAmt = (itemSubtotal * Math.min(100, item.itemDiscount.value)) / 100;
-                      } else {
-                        discAmt = Math.min(itemSubtotal, item.itemDiscount.value);
-                      }
+                      const discAmt = item.itemDiscount.type === 'percent'
+                        ? (itemSubtotal * Math.min(100, item.itemDiscount.value)) / 100
+                        : Math.min(itemSubtotal, item.itemDiscount.value);
                       const netItemSubtotal = Math.max(0, itemSubtotal - discAmt);
                       const itemLoss = itemCost - netItemSubtotal;
                       const isItemLoss = itemLoss > 0 && (Number(item.quantity) || 0) > 0;
