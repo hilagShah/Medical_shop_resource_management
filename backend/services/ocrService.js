@@ -35,6 +35,7 @@ Extract all listed medicine products and supplier details. Return ONLY a single 
   },
   "invoiceNumber": "Bill or Invoice ID",
   "invoiceDate": "YYYY-MM-DD",
+  "totalAmount": 444.00,
   "items": [
     {
       "name": "EXACT medicine product name as printed on the bill (e.g. SENSODYNE FRESH GEL 75G, Paracetamol 500mg)",

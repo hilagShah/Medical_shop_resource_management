@@ -299,6 +299,7 @@ const scanPurchaseBill = async (req, res) => {
       supplier: parsedData.supplier || { name: '', contact: '' },
       invoiceNumber: parsedData.invoiceNumber || '',
       invoiceDate: parsedData.invoiceDate || '',
+      totalAmount: parsedData.totalAmount !== undefined && parsedData.totalAmount !== null ? Number(parsedData.totalAmount) : 0,
       items: parsedData.items || [],
     });
   } catch (error) {
@@ -417,7 +418,11 @@ const batchImportMedicines = async (req, res) => {
     // Save multi-item purchase bill to Purchase collection
     try {
       if (purchaseItems.length > 0) {
-        const { invoiceNumber, invoiceDate } = req.body;
+        const { invoiceNumber, invoiceDate, totalAmount } = req.body;
+        const verifiedTotal = totalAmount !== undefined && totalAmount !== null && Number(totalAmount) >= 0
+          ? Number(Number(totalAmount).toFixed(2))
+          : Number(totalPurchaseAmount.toFixed(2));
+
         await Purchase.create({
           purchaseNumber: generatePurchaseNumber(),
           invoiceNumber: invoiceNumber || `BILL-${Date.now().toString().slice(-6)}`,
@@ -428,7 +433,7 @@ const batchImportMedicines = async (req, res) => {
           },
           shopkeeperId: req.user._id,
           items: purchaseItems,
-          totalAmount: Number(totalPurchaseAmount.toFixed(2)),
+          totalAmount: verifiedTotal,
           totalQuantity: totalUnitsCount,
           source: 'ocr_scan',
         });

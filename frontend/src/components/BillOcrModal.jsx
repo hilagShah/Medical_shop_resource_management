@@ -27,6 +27,8 @@ const BillOcrModal = ({ isOpen, onClose, onSuccess }) => {
   const [supplier, setSupplier] = useState({ name: '', contact: '' });
   const [invoiceMeta, setInvoiceMeta] = useState({ number: '', date: '' });
   const [items, setItems] = useState([]);
+  const [totalBillAmount, setTotalBillAmount] = useState('');
+  const [isCustomTotal, setIsCustomTotal] = useState(false);
 
   if (!isOpen) return null;
 
@@ -140,12 +142,28 @@ const BillOcrModal = ({ isOpen, onClose, onSuccess }) => {
       });
 
       if (res.data.success) {
+        const extractedItems = res.data.items || [];
         setSupplier(res.data.supplier || { name: '', contact: '' });
         setInvoiceMeta({
           number: res.data.invoiceNumber || '',
           date: res.data.invoiceDate || '',
         });
-        setItems(res.data.items || []);
+        setItems(extractedItems);
+
+        // Extract or compute total bill amount
+        if (res.data.totalAmount && Number(res.data.totalAmount) > 0) {
+          setTotalBillAmount(Number(res.data.totalAmount).toFixed(2));
+          setIsCustomTotal(true);
+        } else {
+          const computedTotal = extractedItems.reduce((sum, it) => {
+            const p = parseFloat(it.purchasePrice) || 0;
+            const q = parseInt(it.stockQuantity, 10) || 0;
+            return sum + p * q;
+          }, 0);
+          setTotalBillAmount(computedTotal.toFixed(2));
+          setIsCustomTotal(false);
+        }
+
         setScanned(true);
       } else {
         setError(res.data.message || 'Failed to extract bill details via Gemini OCR');
@@ -187,6 +205,17 @@ const BillOcrModal = ({ isOpen, onClose, onSuccess }) => {
     ]);
   };
 
+  // Computed subtotal of all items
+  const calculatedItemsSubtotal = items.reduce((sum, it) => {
+    const pPrice = parseFloat(it.purchasePrice) || 0;
+    const qty = parseInt(it.stockQuantity, 10) || 0;
+    return sum + pPrice * qty;
+  }, 0);
+
+  const totalUnitsCount = items.reduce((sum, it) => {
+    return sum + (parseInt(it.stockQuantity, 10) || 0);
+  }, 0);
+
   // Submit batch import to database
   const handleImportToDatabase = async () => {
     if (items.length === 0) {
@@ -204,11 +233,16 @@ const BillOcrModal = ({ isOpen, onClose, onSuccess }) => {
     setImporting(true);
     setError('');
 
+    const finalAmountToSend = totalBillAmount !== '' && !isNaN(parseFloat(totalBillAmount))
+      ? parseFloat(totalBillAmount)
+      : calculatedItemsSubtotal;
+
     try {
       const res = await API.post('/medicines/batch-import', {
         supplier,
         invoiceNumber: invoiceMeta.number,
         invoiceDate: invoiceMeta.date,
+        totalAmount: finalAmountToSend,
         items,
       });
 
@@ -238,6 +272,8 @@ const BillOcrModal = ({ isOpen, onClose, onSuccess }) => {
     setSupplier({ name: '', contact: '' });
     setInvoiceMeta({ number: '', date: '' });
     setItems([]);
+    setTotalBillAmount('');
+    setIsCustomTotal(false);
     onClose();
   };
 
@@ -542,6 +578,66 @@ const BillOcrModal = ({ isOpen, onClose, onSuccess }) => {
                       ))}
                     </tbody>
                   </table>
+                </div>
+              </div>
+
+              {/* TOTAL AMOUNT & BILL SUMMARY CARD */}
+              <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 rounded-2xl border border-slate-800 bg-slate-950/80 p-4 shadow-inner">
+                <div className="flex flex-wrap items-center gap-3 text-xs">
+                  <div className="rounded-xl bg-slate-900 border border-slate-800 px-3.5 py-2">
+                    <span className="text-[10px] text-slate-400 block uppercase tracking-wider font-semibold">Total Line Items</span>
+                    <span className="font-mono text-sm font-bold text-white">{items.length} items</span>
+                  </div>
+                  <div className="rounded-xl bg-slate-900 border border-slate-800 px-3.5 py-2">
+                    <span className="text-[10px] text-slate-400 block uppercase tracking-wider font-semibold">Total Quantity</span>
+                    <span className="font-mono text-sm font-bold text-cyan-400">{totalUnitsCount} units</span>
+                  </div>
+                  <div className="rounded-xl bg-slate-900 border border-slate-800 px-3.5 py-2">
+                    <span className="text-[10px] text-slate-400 block uppercase tracking-wider font-semibold">Calculated Items Sum</span>
+                    <span className="font-mono text-sm font-bold text-slate-300">₹{calculatedItemsSubtotal.toFixed(2)}</span>
+                  </div>
+                </div>
+
+                <div className="flex items-center gap-3 w-full sm:w-auto justify-between sm:justify-end border-t sm:border-t-0 border-slate-800 pt-3 sm:pt-0">
+                  <div className="text-left sm:text-right">
+                    <label className="block text-[11px] font-black uppercase tracking-wider text-emerald-400">
+                      Final Total Amount (₹)
+                    </label>
+                    <span className="text-[10px] text-slate-400">
+                      {isCustomTotal ? 'Customized purchase total' : 'Auto-calculated from items'}
+                    </span>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <div className="relative">
+                      <span className="absolute left-3 top-2 text-xs text-slate-400 font-mono font-bold">₹</span>
+                      <input
+                        type="number"
+                        step="0.01"
+                        min="0"
+                        value={totalBillAmount !== '' ? totalBillAmount : calculatedItemsSubtotal.toFixed(2)}
+                        onChange={(e) => {
+                          setTotalBillAmount(e.target.value);
+                          setIsCustomTotal(true);
+                        }}
+                        placeholder="0.00"
+                        className="w-36 rounded-xl border-2 border-emerald-500/60 bg-slate-900 py-1.5 pl-7 pr-3 text-right text-sm font-mono font-black text-emerald-400 shadow-lg shadow-emerald-500/10 focus:border-emerald-400 focus:outline-none"
+                      />
+                    </div>
+                    {isCustomTotal && (
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setTotalBillAmount(calculatedItemsSubtotal.toFixed(2));
+                          setIsCustomTotal(false);
+                        }}
+                        title="Recalculate and reset to sum of items"
+                        className="flex items-center gap-1 rounded-xl border border-slate-700 bg-slate-800 px-2.5 py-2 text-xs text-slate-300 hover:bg-slate-700 hover:text-cyan-400 transition-all"
+                      >
+                        <RefreshCw className="h-3.5 w-3.5" />
+                        <span className="text-[10px] hidden md:inline">Reset</span>
+                      </button>
+                    )}
+                  </div>
                 </div>
               </div>
             </div>
