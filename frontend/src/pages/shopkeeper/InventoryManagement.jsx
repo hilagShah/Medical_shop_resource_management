@@ -14,6 +14,8 @@ import {
   Edit,
   Trash2,
   Zap,
+  Loader2,
+  Check,
 } from 'lucide-react';
 
 const InventoryManagement = () => {
@@ -41,6 +43,47 @@ const InventoryManagement = () => {
     supplierName: '',
     supplierContact: '',
   });
+
+  // Master Medicine Catalog (50,000 Indian medicines) Autocomplete State
+  const [catalogSuggestions, setCatalogSuggestions] = useState([]);
+  const [searchingCatalog, setSearchingCatalog] = useState(false);
+  const [showSuggestions, setShowSuggestions] = useState(false);
+  const [suggestionActiveIndex, setSuggestionActiveIndex] = useState(-1);
+
+  // Search Master Catalog with debounce when typing medicine name in manual entry form
+  useEffect(() => {
+    if (!showModal || !formData.name || formData.name.trim().length < 1) {
+      setCatalogSuggestions([]);
+      setSearchingCatalog(false);
+      return;
+    }
+
+    const timer = setTimeout(async () => {
+      setSearchingCatalog(true);
+      try {
+        const res = await API.get('/medicines/catalog/search', {
+          params: { query: formData.name.trim(), limit: 12 },
+        });
+        setCatalogSuggestions(res.data || []);
+        if (res.data && res.data.length > 0) {
+          setShowSuggestions(true);
+        }
+      } catch (err) {
+        console.error('Master catalog search error:', err);
+      } finally {
+        setSearchingCatalog(false);
+      }
+    }, 180);
+
+    return () => clearTimeout(timer);
+  }, [formData.name, showModal]);
+
+  const selectMedicineSuggestion = (medicineName) => {
+    setFormData((prev) => ({ ...prev, name: medicineName }));
+    setShowSuggestions(false);
+    setCatalogSuggestions([]);
+    setSuggestionActiveIndex(-1);
+  };
 
   const fetchInventory = async () => {
     setLoading(true);
@@ -349,16 +392,87 @@ const InventoryManagement = () => {
 
             <form onSubmit={handleSubmit} className="space-y-4">
               <div className="grid grid-cols-2 gap-3">
-                <div>
-                  <label className="block text-xs font-medium text-slate-300 mb-1">Medicine Name</label>
-                  <input
-                    type="text"
-                    required
-                    value={formData.name}
-                    onChange={(e) => setFormData({ ...formData, name: e.target.value })}
-                    placeholder="e.g. Paracetamol 500mg"
-                    className="w-full rounded-xl border border-slate-800 bg-slate-950 py-2 px-3 text-xs text-white focus:border-cyan-500 focus:outline-none"
-                  />
+                <div className="relative">
+                  <div className="flex items-center justify-between mb-1">
+                    <label className="block text-xs font-medium text-slate-300">Medicine Name</label>
+                    <span className="text-[10px] font-mono text-cyan-400/80">50,000+ Catalog</span>
+                  </div>
+                  <div className="relative">
+                    <input
+                      type="text"
+                      required
+                      autoComplete="off"
+                      value={formData.name}
+                      onFocus={() => {
+                        if (catalogSuggestions.length > 0) setShowSuggestions(true);
+                      }}
+                      onBlur={() => {
+                        // Small timeout to allow click event on suggestion item to register
+                        setTimeout(() => setShowSuggestions(false), 250);
+                      }}
+                      onKeyDown={(e) => {
+                        if (!showSuggestions || catalogSuggestions.length === 0) return;
+                        if (e.key === 'ArrowDown') {
+                          e.preventDefault();
+                          setSuggestionActiveIndex((prev) =>
+                            prev < catalogSuggestions.length - 1 ? prev + 1 : 0
+                          );
+                        } else if (e.key === 'ArrowUp') {
+                          e.preventDefault();
+                          setSuggestionActiveIndex((prev) =>
+                            prev > 0 ? prev - 1 : catalogSuggestions.length - 1
+                          );
+                        } else if (e.key === 'Enter' && suggestionActiveIndex >= 0) {
+                          e.preventDefault();
+                          selectMedicineSuggestion(catalogSuggestions[suggestionActiveIndex].name);
+                        } else if (e.key === 'Escape') {
+                          setShowSuggestions(false);
+                        }
+                      }}
+                      onChange={(e) => {
+                        setFormData({ ...formData, name: e.target.value });
+                        setShowSuggestions(true);
+                        setSuggestionActiveIndex(-1);
+                      }}
+                      placeholder="Type name (e.g. Dolo 650, Pan-D, Augmentin)..."
+                      className="w-full rounded-xl border border-slate-800 bg-slate-950 py-2 pl-3 pr-8 text-xs text-white focus:border-cyan-500 focus:outline-none"
+                    />
+                    <div className="absolute inset-y-0 right-0 flex items-center pr-2.5 pointer-events-none text-slate-500">
+                      {searchingCatalog ? (
+                        <Loader2 className="h-3.5 w-3.5 animate-spin text-cyan-400" />
+                      ) : (
+                        <Search className="h-3.5 w-3.5 text-slate-500" />
+                      )}
+                    </div>
+                  </div>
+
+                  {/* MASTER CATALOG AUTOCOMPLETE DROPDOWN */}
+                  {showSuggestions && catalogSuggestions.length > 0 && (
+                    <div className="absolute left-0 right-0 z-50 mt-1 max-h-56 overflow-y-auto rounded-xl border border-slate-700 bg-slate-900/95 py-1.5 shadow-2xl backdrop-blur-md">
+                      <div className="px-3 py-1 text-[10px] font-bold uppercase tracking-wider text-cyan-400 border-b border-slate-800 flex items-center justify-between">
+                        <span>Matching Indian Medicines</span>
+                        <span className="text-slate-500 font-mono text-[9px]">{catalogSuggestions.length} found</span>
+                      </div>
+                      {catalogSuggestions.map((item, idx) => (
+                        <button
+                          key={item._id || idx}
+                          type="button"
+                          onMouseDown={(e) => {
+                            e.preventDefault();
+                            selectMedicineSuggestion(item.name);
+                          }}
+                          className={`w-full text-left px-3 py-2 text-xs transition-colors flex items-center justify-between ${
+                            idx === suggestionActiveIndex
+                              ? 'bg-cyan-500/20 text-cyan-200'
+                              : 'text-slate-200 hover:bg-slate-800/80 hover:text-white'
+                          }`}
+                        >
+                          <span className="font-medium truncate mr-2">{item.name}</span>
+                          <span className="text-[10px] text-cyan-400/70 shrink-0 font-mono">Select</span>
+                        </button>
+                      ))}
+                    </div>
+                  )}
                 </div>
 
                 <div>

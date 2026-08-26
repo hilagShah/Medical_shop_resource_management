@@ -1,4 +1,5 @@
 const Medicine = require('../models/Medicine');
+const MedicineMaster = require('../models/MedicineMaster');
 const Purchase = require('../models/Purchase');
 const { parsePurchaseBillImage } = require('../services/ocrService');
 const { escapeRegex } = require('../utils/sanitize');
@@ -454,6 +455,46 @@ const batchImportMedicines = async (req, res) => {
   }
 };
 
+// @desc    Search Master Medicine Catalog (50,000 Indian medicines)
+// @route   GET /api/medicines/catalog/search
+// @access  Private (Admin & Shopkeeper)
+const searchMasterCatalog = async (req, res) => {
+  try {
+    const { query, q, limit = 20 } = req.query;
+    const searchTerm = (query || q || '').trim();
+
+    if (!searchTerm || searchTerm.length < 1) {
+      return res.json([]);
+    }
+
+    const safeSearch = escapeRegex(searchTerm);
+    const maxResults = Math.min(Math.max(1, parseInt(limit, 10) || 20), 50);
+
+    // Fast indexed regex search prioritizing names that start with search term, then containing it
+    const results = await MedicineMaster.find({
+      name: { $regex: safeSearch, $options: 'i' },
+    })
+      .select('name')
+      .limit(maxResults)
+      .lean();
+
+    // Sort to rank exact prefix matches higher
+    const searchLower = searchTerm.toLowerCase();
+    results.sort((a, b) => {
+      const aStarts = a.name.toLowerCase().startsWith(searchLower);
+      const bStarts = b.name.toLowerCase().startsWith(searchLower);
+      if (aStarts && !bStarts) return -1;
+      if (!aStarts && bStarts) return 1;
+      return a.name.localeCompare(b.name);
+    });
+
+    res.json(results);
+  } catch (error) {
+    console.error('Master Catalog Search Error:', error);
+    res.status(500).json({ message: 'Error searching master medicines catalog' });
+  }
+};
+
 module.exports = {
   addMedicine,
   getMedicines,
@@ -462,4 +503,6 @@ module.exports = {
   deleteMedicine,
   scanPurchaseBill,
   batchImportMedicines,
+  searchMasterCatalog,
 };
+
