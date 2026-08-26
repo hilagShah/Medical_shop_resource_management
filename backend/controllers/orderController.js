@@ -102,6 +102,7 @@ const createOrder = async (req, res) => {
         },
         subtotalBeforeDiscount: Number(itemSubtotalBefore.toFixed(2)),
         subtotalAfterDiscount: Number(itemSubtotalAfter.toFixed(2)),
+        expiryDate: medicine.expiryDate || (item.expiryDate ? new Date(item.expiryDate) : undefined),
       });
     }
 

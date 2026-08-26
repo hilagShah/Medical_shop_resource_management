@@ -52,12 +52,13 @@ const InvoiceModal = ({ order, onClose }) => {
     const itemSgst = itemTaxable * (itemGstRate / 200);
     const itemCgst = itemTaxable * (itemGstRate / 200);
 
-    const expStr = item.expiryDate
-      ? new Date(item.expiryDate).toLocaleDateString('en-GB', {
+    const expDateRaw = item.expiryDate || item.medicineId?.expiryDate;
+    const expStr = expDateRaw
+      ? new Date(expDateRaw).toLocaleDateString('en-GB', {
           month: '2-digit',
           year: '2-digit',
         })
-      : '03/27';
+      : '-';
 
     return {
       sr: idx + 1,

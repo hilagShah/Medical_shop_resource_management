@@ -62,6 +62,9 @@ const orderItemSchema = new mongoose.Schema(
       type: Number,
       default: 0,
     },
+    expiryDate: {
+      type: Date,
+    },
   },
   { _id: true }
 );

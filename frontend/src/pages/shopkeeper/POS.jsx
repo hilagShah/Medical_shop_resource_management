@@ -107,6 +107,7 @@ const POS = () => {
         stockQuantity: med.stockQuantity,
         quantity: '', // Empty field by default instead of 0
         gstRate: defaultGst,
+        expiryDate: med.expiryDate,
         itemDiscount: { type: 'flat', value: 0 },
       },
     ]);
