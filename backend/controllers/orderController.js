@@ -16,13 +16,17 @@ const getNextBillNumber = async (shopkeeperId, session = null) => {
 
   let maxNum = 0;
   for (const ord of userOrders) {
-    const num = parseInt(ord.orderNumber, 10);
-    if (!isNaN(num) && num > maxNum) {
-      maxNum = num;
+    // Only consider purely numerical serial bill numbers (e.g. "1", "2", "3")
+    if (ord.orderNumber && /^\d+$/.test(ord.orderNumber.trim())) {
+      const num = parseInt(ord.orderNumber.trim(), 10);
+      if (num > maxNum) {
+        maxNum = num;
+      }
     }
   }
 
-  const nextNum = maxNum > 0 ? maxNum + 1 : userOrders.length + 1;
+  // If no serial bill numbers exist yet for this shopkeeper, start at 1
+  const nextNum = maxNum > 0 ? maxNum + 1 : 1;
   return String(nextNum);
 };
 
