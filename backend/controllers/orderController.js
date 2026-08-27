@@ -4,11 +4,26 @@ const Medicine = require('../models/Medicine');
 const User = require('../models/User');
 const { escapeRegex } = require('../utils/sanitize');
 
-// Helper to generate unique order number (e.g. INV-20260815-9X2A)
-const generateOrderNumber = () => {
-  const dateStr = new Date().toISOString().slice(0, 10).replace(/-/g, '');
-  const randomStr = Math.random().toString(36).substring(2, 7).toUpperCase();
-  return `INV-${dateStr}-${randomStr}`;
+// Helper to generate sequential bill number starting from 1 for each shopkeeper
+const getNextBillNumber = async (shopkeeperId, session = null) => {
+  const query = Order.find({ shopkeeperId }).select('orderNumber').sort({ createdAt: -1 });
+  if (session) query.session(session);
+  const userOrders = await query.lean();
+
+  if (!userOrders || userOrders.length === 0) {
+    return '1';
+  }
+
+  let maxNum = 0;
+  for (const ord of userOrders) {
+    const num = parseInt(ord.orderNumber, 10);
+    if (!isNaN(num) && num > maxNum) {
+      maxNum = num;
+    }
+  }
+
+  const nextNum = maxNum > 0 ? maxNum + 1 : userOrders.length + 1;
+  return String(nextNum);
 };
 
 // @desc    Create new sale / order (Complete Sale POS)
@@ -152,8 +167,8 @@ const createOrder = async (req, res) => {
     const roundedTotal = Math.round(rawTotal);
     const roundOff = roundedTotal - rawTotal;
 
-    // Create Order Record
-    const orderNumber = generateOrderNumber();
+    // Create Order Record with sequential bill number starting from 1
+    const orderNumber = await getNextBillNumber(req.user._id, session);
 
     const orderData = {
       orderNumber,

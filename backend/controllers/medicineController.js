@@ -467,28 +467,48 @@ const searchMasterCatalog = async (req, res) => {
       return res.json([]);
     }
 
-    const safeSearch = escapeRegex(searchTerm);
+    // Normalize search pattern so hyphens and spaces match interchangeably (e.g. "akilos p" matches "Akilos-P" and "Akilos P")
+    const flexiblePattern = escapeRegex(searchTerm).replace(/[- ]+/g, '[- ]?');
     const maxResults = Math.min(Math.max(1, parseInt(limit, 10) || 20), 50);
 
-    // Fast indexed regex search prioritizing names that start with search term, then containing it
+    // Fast indexed regex search
     const results = await MedicineMaster.find({
-      name: { $regex: safeSearch, $options: 'i' },
+      name: { $regex: flexiblePattern, $options: 'i' },
     })
       .select('name')
-      .limit(maxResults)
+      .limit(maxResults * 2)
       .lean();
 
-    // Sort to rank exact prefix matches higher
-    const searchLower = searchTerm.toLowerCase();
+    // Sort to rank exact start-of-word and prefix matches highest, with common formulations (Tablet, Capsule, Syrup) preferred
+    const searchNormalized = searchTerm.toLowerCase().replace(/[- ]+/g, '');
+    const getFormScore = (name) => {
+      const lower = name.toLowerCase();
+      if (lower === searchNormalized) return 0;
+      if (lower.includes('tablet')) return 1;
+      if (lower.includes('capsule')) return 2;
+      if (lower.includes('syrup')) return 3;
+      if (lower.includes('suspension')) return 4;
+      return 5;
+    };
+
     results.sort((a, b) => {
-      const aStarts = a.name.toLowerCase().startsWith(searchLower);
-      const bStarts = b.name.toLowerCase().startsWith(searchLower);
+      const aNorm = a.name.toLowerCase().replace(/[- ]+/g, '');
+      const bNorm = b.name.toLowerCase().replace(/[- ]+/g, '');
+
+      const aStarts = aNorm.startsWith(searchNormalized);
+      const bStarts = bNorm.startsWith(searchNormalized);
+
       if (aStarts && !bStarts) return -1;
       if (!aStarts && bStarts) return 1;
-      return a.name.localeCompare(b.name);
+
+      const aScore = getFormScore(a.name);
+      const bScore = getFormScore(b.name);
+      if (aScore !== bScore) return aScore - bScore;
+
+      return a.name.length - b.name.length || a.name.localeCompare(b.name);
     });
 
-    res.json(results);
+    res.json(results.slice(0, maxResults));
   } catch (error) {
     console.error('Master Catalog Search Error:', error);
     res.status(500).json({ message: 'Error searching master medicines catalog' });

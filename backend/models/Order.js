@@ -86,12 +86,13 @@ const orderSchema = new mongoose.Schema(
     orderNumber: {
       type: String,
       required: true,
-      unique: true,
+      trim: true,
     },
     shopkeeperId: {
       type: mongoose.Schema.Types.ObjectId,
       ref: 'User',
       required: true,
+      index: true,
     },
     customerDetails: {
       name: { type: String, default: 'Walk-in Customer' },
@@ -160,6 +161,9 @@ const orderSchema = new mongoose.Schema(
     timestamps: true,
   }
 );
+
+// Compound index for per-shopkeeper serial bill lookup
+orderSchema.index({ shopkeeperId: 1, orderNumber: 1 });
 
 const Order = mongoose.model('Order', orderSchema);
 module.exports = Order;
